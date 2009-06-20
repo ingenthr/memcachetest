@@ -1,5 +1,5 @@
 AUTOMAKE_OPTIONS = foreign
-bin_PROGRAMS = testclient
+bin_PROGRAMS = memcachetest
 
-testclient_SOURCES = main.c libmemc.c libmemc.h boxmuller.c metrics.c
+memcachetest_SOURCES = main.c libmemc.c libmemc.h boxmuller.c metrics.c
 

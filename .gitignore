@@ -16,3 +16,5 @@ config.status
 libmemc.o
 main.o
 stamp-h1
+memcachetest
+metrics.o

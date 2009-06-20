@@ -722,7 +722,7 @@ static int test(struct report *rep) {
                 fflush(stderr);
             }
             hrtime_t delta;
-            size_t size;
+            size_t size = 0;
             hrtime_t start = gethrtime();
             void *data = memcached_get_wrapper(connection, item.key,
                     item.keylen, &size);
@@ -901,7 +901,7 @@ static int load_keys(const char *fname) {
 
 #else
     keyarray = malloc(st.st_size);
-    size_t offset;
+    size_t offset = 0;
     ssize_t nr;
     do {
         nr = read(fileno(fp), keyarray + offset, st.st_size - offset);
@@ -1252,7 +1252,7 @@ int main(int argc, char **argv) {
 
         printf("Get operations:\n");
         printf("     #of ops.       min       max        avg      max90th    max95th\n");
-        printf("%13d", results->success_count);
+        printf("%13ld", results->success_count);
         printf("%11.11s", hrtime2text(results->min_result, tmin, sizeof (tmin)));
         printf("%11.11s", hrtime2text(results->max_result, tmax, sizeof (tmax)));
         printf("%11.11s", hrtime2text(results->average, tavg, sizeof(tavg)));

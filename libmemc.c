@@ -39,6 +39,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+#include <sys/uio.h>
 
 struct Server {
    int sock;

@@ -69,12 +69,6 @@ struct TxnRunStatus {
 };
 
 
-struct TxnResult {
-    hrtime_t respTime;
-    struct TxnResult* left;
-    struct TxnResult* right;
-};
-
 static void insert(struct TxnResult** root, struct TxnResult* item) {
     if (*root == NULL) {
         *root = item;
@@ -199,10 +193,9 @@ static hrtime_t calc_average(struct TxnResult* a) {
  * External interface
  */
 void record_tx(enum TxnType tx_type, hrtime_t time) {
-    struct TxnResult new_txn { .respTme = time, .left = NULL, .right = NULL };
-
+    struct TxnResult* new_txn = calloc(1, sizeof(struct TxnResult));
     pthread_mutex_lock(&lock);
-    insert(&txn_list_first, create_txn(&new_txn));
+    insert(&txn_list_first, create_txn(new_txn));
     pthread_mutex_unlock(&lock);
     txCntStdy[tx_type]++;
 }

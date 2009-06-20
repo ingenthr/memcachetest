@@ -68,6 +68,13 @@ void record_tx(enum TxnType, hrtime_t);
 void record_error(enum TxnType, hrtime_t);
 struct ResultMetrics *calc_metrics(enum TxnType tx_type);
 
+struct TxnResult {
+    hrtime_t respTime;
+    struct TxnResult * next;
+    struct TxnResult* left;
+    struct TxnResult* right;
+};
+
 struct ResultMetrics {
     hrtime_t max_result;
     hrtime_t min_result;
