@@ -32,8 +32,34 @@ extern "C" {
 #endif
 
 #ifndef HAVE_GETHRTIME
-typedef uint64_t hrtime_t;
-extern hrtime_t gethrtime();
+
+    typedef uint64_t hrtime_t;
+
+static hrtime_t gethrtime() {
+    hrtime_t ret;
+
+#ifdef HAVE_CLOCK_GETTIME
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1) {
+        return (-1ULL);
+    }
+
+    ret = ts.tv_sec * 1000000000;
+    ret += ts.tv_nsec;
+#else
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) == -1) {
+      return (-1ULL);
+    }
+
+    ret = tv.tv_sec * 1000000000;
+    ret += tv.tv_usec * 1000;
+#endif
+
+    return ret;
+}
+
 #endif
 
 enum TxnType { TX_GET, TX_ADD, TX_REPLACE, TX_APPEND, TX_PREPEND, TX_CAS };

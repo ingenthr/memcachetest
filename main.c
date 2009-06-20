@@ -200,33 +200,6 @@ struct connection {
     void *handle;
 };
 
-#ifndef HAVE_GETHRTIME
-static hrtime_t gethrtime() {
-    hrtime_t ret;
-
-#ifdef HAVE_CLOCK_GETTIME
-    struct timespec ts;
-
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1) {
-        return (-1ULL);
-    }
-
-    ret = ts.tv_sec * 1000000000;
-    ret += ts.tv_nsec;
-#else
-    struct timeval tv;
-    if (gettimeofday(&tv, NULL) == -1) {
-      return (-1ULL);
-    }
-
-    ret = tv.tv_sec * 1000000000;
-    ret += tv.tv_usec * 1000;
-#endif
-
-    return ret;
-}
-#endif
-
 extern double box_muller(double m, double s);
 
 /**
@@ -480,7 +453,7 @@ static void release_connection(struct connection *connection) {
  * @return buffer
  */
 const char* hrtime2text(hrtime_t time, char *buffer, size_t size) {
-    const char * const extensions[] = {"ns", "µs", "ms", "s" };
+    const char * const extensions[] = {"ns", "us", "ms", "s" }; //TODO: get a greek Mu in here correctly
     int id = 0;
 
     while (time > 9999) {

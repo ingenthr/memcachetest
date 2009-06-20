@@ -7,3 +7,12 @@ configure
 depcomp
 install-sh
 missing
+.deps/
+Makefile
+boxmuller.o
+config.h
+config.log
+config.status
+libmemc.o
+main.o
+stamp-h1
