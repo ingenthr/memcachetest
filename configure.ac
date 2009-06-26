@@ -1,5 +1,5 @@
 AC_PREREQ(2.52)
-AC_INIT(memcachebench, 0.5.0, ingenthr@cep.net)
+AC_INIT(memcachetest, 0.5.0, ingenthr@cep.net)
 AC_CONFIG_SRCDIR(main.c)
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AM_CONFIG_HEADER(config.h)
@@ -39,7 +39,9 @@ AC_ARG_WITH(libmemcached,
                CFLAGS="-I$withval/include $CFLAGS"
 	       CPPFLAGS="-I$withval/include $CPPFLAGS"
                # TODO: linux should have --rpath instead of -R
-               LDFLAGS="-L$withval/lib -Wl,-R$withval/lib"
+	       # TODO: MacOS has -rpath
+               #LDFLAGS="-L$withval/lib -rpath $withval/lib"
+	       LDFLAGS="-L$withval/lib"
             fi
         fi
     ]

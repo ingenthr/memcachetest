@@ -18,8 +18,7 @@
  */
 
 /*
- * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Portions Copyright 2009 Matt Ingenthron
  */
 #ifndef LIBMEMC_LIBMEMC_H
 #define	LIBMEMC_LIBMEMC_H
