@@ -41,7 +41,7 @@ AC_ARG_WITH(libmemcached,
                # TODO: linux should have --rpath instead of -R
 	       # TODO: MacOS has -rpath
                #LDFLAGS="-L$withval/lib -rpath $withval/lib"
-	       LDFLAGS="-L$withval/lib"
+	       LDFLAGS="-L$withval/lib -R$withval/lib"
             fi
         fi
     ]
