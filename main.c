@@ -55,9 +55,6 @@
 #define MAXINT (int)(unsigned int)-1
 #endif
 
-
-
-
 struct host {
     const char *hostname;
     in_port_t port;
@@ -127,6 +124,10 @@ struct datablock {
      */
     void *data;
     /**
+     * Minimum size generated for any given data block.
+     */
+    size_t min_size;
+    /**
      * The size of the datablock
      */
     size_t size;
@@ -145,7 +146,7 @@ int use_fixed_block_size = 0;
  * Set to 1 if you would like the memcached client to connect to multiple
  * servers.
  */
-int use_multiple_servers = 0;
+int use_multiple_servers = 1;
 
 /** The number of items to operate on (may be overridden with -i */
 long no_items = 10000;
@@ -522,10 +523,13 @@ static int initialize_dataset() {
             dataset[ii].size = datablock.size;
             total += dataset[ii].size;
         } else {
-            dataset[ii].size = random() % datablock.size;
+            dataset[ii].size = datablock.min_size
+                + (random() % (datablock.size - datablock.min_size));
             if (dataset[ii].size == 0) {
                 dataset[ii].size = 1024;
             }
+            assert(dataset[ii].size >= datablock.min_size);
+            assert(dataset[ii].size <= datablock.size);
             total += dataset[ii].size;
         }
     }
@@ -938,6 +942,7 @@ int main(int argc, char **argv) {
     struct rusage rusage;
     struct rusage server_start;
     struct timeval starttime = {0};
+    int size;
 
     gettimeofday(&starttime, NULL);
 
@@ -960,7 +965,13 @@ int main(int argc, char **argv) {
             case 'L':
                 current_memcached_library = atoi(optarg);
                 break;
-            case 'M': use_multiple_servers = 1;
+            case 'M':
+                size = atoi(optarg);
+                if (size > 1024 * 1024) {
+                    fprintf(stderr, "WARNING: Too big block size %d\n", size);
+                } else {
+                    datablock.size = size;
+                }
                 break;
             case 'F': use_fixed_block_size = 1;
                 break;
@@ -986,11 +997,11 @@ int main(int argc, char **argv) {
                 break;
             case 'm':
             {
-                int size = atoi(optarg);
+                size = atoi(optarg);
                 if (size > 1024 * 1024) {
                     fprintf(stderr, "WARNING: Too big block size %d\n", size);
                 } else {
-                    datablock.size = atoi(optarg);
+                    datablock.min_size = size;
                 }
                 break;
             }
