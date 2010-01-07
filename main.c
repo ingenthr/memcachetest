@@ -749,7 +749,7 @@ static int test(struct report *rep) {
                     fprintf(stderr, "Garbled data for <%s>\n",
                             item.key);
                 }
-                record_tx(TX_GET, delta);
+                // record_tx(TX_GET, delta);
                 free(data);
             } else {
                 fprintf(stderr, "missing data for <");
@@ -757,7 +757,7 @@ static int test(struct report *rep) {
                     fprintf(stderr, "%c", item.key[ii]);
                 }
                 fprintf(stderr, ">\n");
-                record_error(TX_GET, delta);
+                // record_error(TX_GET, delta);
             }
             ++rep->get;
         }
@@ -1250,16 +1250,16 @@ int main(int argc, char **argv) {
 
         }
 
-        struct ResultMetrics *results = calc_metrics(TX_GET);
+        // struct ResultMetrics *results = calc_metrics(TX_GET);
 
         /* print out the results */
 
+        /*
         char tavg[80];
         char tmin[80];
         char tmax[80];
         char tmax90[80];
         char tmax95[80];
-
 
         printf("Get operations:\n");
         printf("     #of ops.       min       max        avg      max90th    max95th\n");
@@ -1271,6 +1271,7 @@ int main(int argc, char **argv) {
         printf("%12.12s", hrtime2text(results->max95th_result, tmax95, sizeof(tmax95)));
 
         printf("\n\n");
+        */
 
         printf("Average with %d threads:\n", no_threads);
         if (set > 0) {
