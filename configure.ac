@@ -4,6 +4,10 @@ AC_CONFIG_SRCDIR(main.c)
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AM_CONFIG_HEADER(config.h)
 
+AH_TOP([#ifndef CONFIG_H
+#define CONFIG_H
+])
+
 AC_PROG_CC
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
@@ -81,6 +85,19 @@ AC_CHECK_HEADER(sys/mman.h, AC_DEFINE(HAVE_MMAN_H, 1, [Define if you have sys/mm
 AC_CHECK_FUNC(mmap, AC_DEFINE(HAVE_MMAP, 1, [Define if you have mmap]))
 AC_CHECK_FUNC(madvise, AC_DEFINE(HAVE_MADVISE, 1, [Define if you have madvise]))
 AC_CHECK_FUNC(gethrtime, AC_DEFINE(HAVE_GETHRTIME, 1, [Define if you have gethrtime]))
+AS_IF(test "x${ac_cv_func_gethrtime}" = "xno",
+      [AC_CHECK_FUNC(clock_gettime,  AC_DEFINE(HAVE_CLOCK_GETTIME, 1, [Define if you have clock_gettime]))
+       AS_IF(test "x${ac_cv_func_clock_gettime}" = "xno",
+                   [AC_CHECK_FUNC(gettimeofday,  AC_DEFINE(HAVE_GETTIMEOFDAY, 1, [Define if you have gettimeofday]))])
+      ])
+
+AH_BOTTOM(
+#ifndef HAVE_GETHRTIME
+#include <stdint.h>
+typedef uint64_t hrtime_t;
+extern hrtime_t gethrtime();
+#endif
+)
 
 if test "$without_libmemcaced" != "true"
 then
@@ -95,5 +112,6 @@ then
        AC_DEFINE(HAVE_PROTOCOL_BINARY, 1, [Define if you have memcached/protocol_binary.h]))
 fi
 
+AH_BOTTOM([#endif])
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT
