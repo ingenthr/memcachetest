@@ -114,7 +114,8 @@ struct item *dataset;
 static void *keyarray;
 static int keylength;
 static long totalkeys;
-
+static long long globalSetCount=0;
+static long long globalGetCount=0;
 /**
  * The datablock to operate with
  */
@@ -151,7 +152,7 @@ int use_multiple_servers = 1;
 /** The number of items to operate on (may be overridden with -i */
 long no_items = 10000;
 /** The number of operations (pr thread) to execute (may be overridden with -c */
-int no_iterations = 10000;
+long long no_iterations = 10000;
 /** If we should verify the data received. May be overridden with -V */
 int verify_data = 0;
 
@@ -553,6 +554,7 @@ static int populate_dataset(struct report *rep) {
             release_connection(connection);
             return -1;
         }
+	globalSetCount++;
         assert((verify_data) ? dataset[ii].keylen == strlen(dataset[ii].key) : 1);
     }
 
@@ -708,6 +710,7 @@ static int test(struct report *rep) {
             hrtime_t start = gethrtime();
             memcached_set_wrapper(connection, item.key, item.keylen,
                     datablock.data, item.size);
+	    globalSetCount++;
             delta = gethrtime() - start;
             if (delta < rep->bestSet) {
                 rep->bestSet = delta;
@@ -730,6 +733,8 @@ static int test(struct report *rep) {
             hrtime_t start = gethrtime();
             void *data = memcached_get_wrapper(connection, item.key,
                     item.keylen, &size);
+
+	    globalGetCount++;
             delta = gethrtime() - start;
             if (delta < rep->bestGet) {
                 rep->bestGet = delta;
@@ -981,7 +986,7 @@ int main(int argc, char **argv) {
                 break;
             case 's': srand(atoi(optarg));
                 break;
-            case 'c': no_iterations = atoi(optarg);
+            case 'c': no_iterations = atoll(optarg);
                 break;
             case 'V': verify_data = 1;
                 break;
@@ -1336,7 +1341,8 @@ int main(int argc, char **argv) {
         }
     }
 
-
+ fprintf(stdout,"Total gets: %lld\n",globalGetCount);
+    fprintf(stdout,"Total sets: %lld\n",globalSetCount);
     destroy_connection_pool();
 
     return 0;
