@@ -1,0 +1,10 @@
+bike shed french fryer attached...
+
+just drop the web.rb file into the memcachetest directory or one with
+a symlink, and...
+
+  ruby web.rb
+
+then...
+
+  http://localhost:4567
