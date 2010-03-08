@@ -670,7 +670,7 @@ struct item get_setval(void) {
         unsigned int offset = (int)(median_keys * result/6);
         offset %= totalkeys;
 
-        ret.key = keyarray + ((keylength + 1) * (offset));
+        ret.key = (const char*)keyarray + ((keylength + 1) * (offset));
     } else {
         /* try use the ring... */
        int offset = random() % no_items;
@@ -926,7 +926,7 @@ static int load_keys(const char *fname) {
     while (*ptr != '\0' && *ptr != '\n') {
         ++ptr;
         ++keylength;
-        if (ptr == (keyarray + st.st_size)) {
+        if (ptr == ((const char*)keyarray + st.st_size)) {
             break;
         }
     }
