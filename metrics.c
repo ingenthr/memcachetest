@@ -198,7 +198,7 @@ static hrtime_t calc_average(struct TxnResult* a) {
  */
 void record_tx(enum TxnType tx_type, hrtime_t t) {
     struct TxnResult* new_txn = calloc(1, sizeof(struct TxnResult));
-    new_txn->respTime = t;
+    new_txn->respTime = time;
     new_txn->left = new_txn->right = new_txn->next = NULL;
     pthread_mutex_lock(&lock);
     insert(&txn_list_first, new_txn);
