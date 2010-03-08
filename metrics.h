@@ -62,7 +62,7 @@ static hrtime_t gethrtime() {
 
 #endif
 
-enum TxnType { TX_GET, TX_ADD, TX_REPLACE, TX_APPEND, TX_PREPEND, TX_CAS };
+enum TxnType { TX_GET, TX_SET, TX_ADD, TX_REPLACE, TX_APPEND, TX_PREPEND, TX_CAS };
 
 void record_tx(enum TxnType, hrtime_t);
 void record_error(enum TxnType, hrtime_t);

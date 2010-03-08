@@ -719,6 +719,7 @@ static int test(struct report *rep) {
                 rep->worstSet = delta;
             }
             rep->setDelta += delta;
+            // record_tx(TX_SET, delta);  Need to add sets!
             ++rep->set;
         } else {
             /* go set it from random data */
@@ -1255,7 +1256,7 @@ int main(int argc, char **argv) {
 
         }
 
-        // struct ResultMetrics *results = calc_metrics(TX_GET);
+        struct ResultMetrics *getResults = calc_metrics(TX_GET); // this does only gets at the moment need a smarter calc_metrics
 
         /* print out the results */
 
@@ -1268,12 +1269,12 @@ int main(int argc, char **argv) {
 
         printf("Get operations:\n");
         printf("     #of ops.       min       max        avg      max90th    max95th\n");
-        printf("%13ld", results->success_count);
-        printf("%11.11s", hrtime2text(results->min_result, tmin, sizeof (tmin)));
-        printf("%11.11s", hrtime2text(results->max_result, tmax, sizeof (tmax)));
-        printf("%11.11s", hrtime2text(results->average, tavg, sizeof(tavg)));
-        printf("%13.13s", hrtime2text(results->max90th_result, tmax90, sizeof(tmax90)));
-        printf("%12.12s", hrtime2text(results->max95th_result, tmax95, sizeof(tmax95)));
+        printf("%13ld", getResults->success_count);
+        printf("%11.11s", hrtime2text(getResults->min_result, tmin, sizeof (tmin)));
+        printf("%11.11s", hrtime2text(getResults->max_result, tmax, sizeof (tmax)));
+        printf("%11.11s", hrtime2text(getResults->average, tavg, sizeof(tavg)));
+        printf("%13.13s", hrtime2text(getResults->max90th_result, tmax90, sizeof(tmax90)));
+        printf("%12.12s", hrtime2text(getResults->max95th_result, tmax95, sizeof(tmax95)));
 
         printf("\n\n");
         */
