@@ -236,7 +236,7 @@ static void *create_memcached_handle(void) {
             ret->handle = memc;
         }
             break;
-#endif        
+#endif
         case LIBMEMC_TEXTUAL:
         {
             struct Memcache* memcache = libmemc_create(Textual);
@@ -624,10 +624,10 @@ struct item get_setval(void) {
     struct item ret = { .key = NULL, .keylen = 0, .size = 0 };
 
     if (keyarray != 0) {
-        // Use keys loaded from disk..        
+        // Use keys loaded from disk..
         ret.keylen = keylength;
         ret.size = 1024; // add random value;
-        
+
         /* test the box_muller */
         double m = 6.0; /* this is the mean; stddev set via option -y */
         assert(totalkeys > 0);
@@ -664,7 +664,7 @@ struct item get_setval(void) {
         unsigned int offset = (int)(median_keys * result/6);
         offset %= totalkeys;
 
-        ret.key = keyarray + ((keylength + 1) * (offset));
+        ret.key = (const char*)keyarray + ((keylength + 1) * (offset));
     } else {
         /* try use the ring... */
        int offset = random() % no_items;
@@ -672,7 +672,7 @@ struct item get_setval(void) {
        ret.keylen = dataset[offset].keylen;
        ret.size = dataset[offset].size;
     }
-    
+
     return ret;
 }
 
@@ -698,7 +698,7 @@ static int test(struct report *rep) {
                 abort();
             }
         }
-        
+
         if (keyarray == NULL && setprc > 0 && (random() % 100) < setprc) { // @todo fixme!!! (we don't do set right now...)
             hrtime_t delta;
             hrtime_t start = gethrtime();
@@ -917,7 +917,7 @@ static int load_keys(const char *fname) {
     while (*ptr != '\0' && *ptr != '\n') {
         ++ptr;
         ++keylength;
-        if (ptr == (keyarray + st.st_size)) {
+        if (ptr == ((const char*)keyarray + st.st_size)) {
             break;
         }
     }
@@ -1037,7 +1037,7 @@ int main(int argc, char **argv) {
     if (set_bench == 1 && keyarray==NULL) {
         fprintf(stderr,"-x option requires keyfile (-k)\n");
         exit(-1);
-    }   
+    }
 
     if (connection_pool_size < no_threads) {
         connection_pool_size = no_threads;
@@ -1082,7 +1082,7 @@ int main(int argc, char **argv) {
     if (keyarray != NULL) {
         populate = 0;
     }
-    
+
     if (populate && populate_data(no_threads) == -1) {
         return 1;
     }
@@ -1166,7 +1166,7 @@ int main(int argc, char **argv) {
                 fprintf(stdout, "\n");
             }
 
-            
+
             for (ii = 0; ii < no_threads; ++ii) {
                 void *ret;
                 pthread_join(threads[ii], &ret);
