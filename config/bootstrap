@@ -39,9 +39,12 @@ if test x$LIBTOOLIZE = x; then
   fi
 fi
 
-## suse has aclocal and aclocal-1.9
+## updated for aclocal-1.11; tried autoreconf first, it still 
+##   doesn't work
 if test x$ACLOCAL = x; then
-  if test \! "x`which aclocal-1.10 2> /dev/null | grep -v '^no'`" = x; then
+  if test \! "x`which aclocal-1.11 2> /dev/null | grep -v '^no'`" = x; then
+    ACLOCAL=aclocal-1.11
+  elif test \! "x`which aclocal-1.10 2> /dev/null | grep -v '^no'`" = x; then
     ACLOCAL=aclocal-1.10
   elif test \! "x`which aclocal-1.9 2> /dev/null | grep -v '^no'`" = x; then
     ACLOCAL=aclocal-1.9
@@ -55,7 +58,9 @@ if test x$ACLOCAL = x; then
 fi
 
 if test x$AUTOMAKE = x; then
-  if test \! "x`which automake-1.10 2> /dev/null | grep -v '^no'`" = x; then
+  if test \! "x`which automake-1.11 2> /dev/null | grep -v '^no'`" = x; then
+    AUTOMAKE=automake-1.11
+  elif test \! "x`which automake-1.10 2> /dev/null | grep -v '^no'`" = x; then
     AUTOMAKE=automake-1.10
   elif test \! "x`which automake-1.9 2> /dev/null | grep -v '^no'`" = x; then
     AUTOMAKE=automake-1.9
