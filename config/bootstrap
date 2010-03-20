@@ -39,7 +39,7 @@ if test x$LIBTOOLIZE = x; then
   fi
 fi
 
-## updated for aclocal-1.11; tried autoreconf first, it still 
+## updated for aclocal-1.11; tried autoreconf first, it still
 ##   doesn't work
 if test x$ACLOCAL = x; then
   if test \! "x`which aclocal-1.11 2> /dev/null | grep -v '^no'`" = x; then

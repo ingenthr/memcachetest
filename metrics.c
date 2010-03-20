@@ -18,7 +18,7 @@
  */
 
 /*
- * Portions Copyright 2009 Matt Ingenthron
+ * Portions Copyright 2009-2010 Matt Ingenthron
  */
 
 /*
@@ -37,6 +37,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include "metrics.h"
+#include "memcachetest.h"
 
 /* Stats for all transaction types - the first dimension of the array
  * is always the operation id. This is the index into the operations
@@ -192,13 +193,11 @@ static hrtime_t calc_average(struct TxnResult* a) {
 /**
  * External interface
  */
-void record_tx(enum TxnType tx_type, hrtime_t time) {
+void record_tx(enum TxnType tx_type, hrtime_t time, struct thread_context *ctx) {
     struct TxnResult* new_txn = calloc(1, sizeof(struct TxnResult));
     new_txn->respTime = time;
     new_txn->left = new_txn->right = new_txn->next = NULL;
-    pthread_mutex_lock(&lock);
-    insert(&txn_list_first, new_txn);
-    pthread_mutex_unlock(&lock);
+    insert(ctx->head, new_txn);
     txCntStdy[tx_type]++;
 }
 

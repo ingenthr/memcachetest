@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <stdint.h>
 #include "config.h"
+#include "memcachetest.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -33,7 +34,7 @@ extern "C" {
 
 enum TxnType { TX_GET, TX_SET, TX_ADD, TX_REPLACE, TX_APPEND, TX_PREPEND, TX_CAS };
 
-void record_tx(enum TxnType, hrtime_t);
+void record_tx(enum TxnType, hrtime_t, struct thread_context *);
 void record_error(enum TxnType, hrtime_t);
 struct ResultMetrics *calc_metrics(enum TxnType tx_type);
 
