@@ -70,11 +70,11 @@ struct TxnRunStatus {
 };
 
 
-static void insert(struct TxnResult** root, struct TxnResult* item) {
-    if (*root == NULL) {
-        *root = item;
+static void insert(struct thread_context *ctx, struct TxnResult* item) {
+    if (ctx->head == NULL) {
+        ctx->head = item;
     } else {
-        struct TxnResult* ptr = *root;
+        struct TxnResult* ptr = ctx->head;
         int searching = 1;
 
         while (searching) {
@@ -197,7 +197,7 @@ void record_tx(enum TxnType tx_type, hrtime_t time, struct thread_context *ctx) 
     struct TxnResult* new_txn = calloc(1, sizeof(struct TxnResult));
     new_txn->respTime = time;
     new_txn->left = new_txn->right = new_txn->next = NULL;
-    insert(ctx->head, new_txn);
+    insert(ctx, new_txn);
     txCntStdy[tx_type]++;
 }
 
