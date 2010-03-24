@@ -981,16 +981,17 @@ int main(int argc, char **argv) {
                 populate = 0;
                 break;
             default:
-                fprintf(stderr, "Usage: test [-h host[:port]] [-t #threads]");
+                fprintf(stderr, "Usage: memcachtest test [-h host[:port]] [-t #threads]");
                 fprintf(stderr, " [-T] [-i #items] [-c #iterations] [-v] ");
                 fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-x] [-y stddev] [-k keyfile]\n");
-                fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
+                fprintf(stderr, "\t-h The hostname:port where the memcached server is running; requires\n\t   the -M flag if multiple servers are specified with multiple -h flags\n");
                 fprintf(stderr, "\t-t The number of threads to use\n");
                 fprintf(stderr, "\t-m The max message size to operate on\n");
                 fprintf(stderr, "\t-F Use fixed message size\n");
                 fprintf(stderr, "\t-i The number of items to operate with\n");
                 fprintf(stderr, "\t-c The number of iteratons each thread should do\n");
                 fprintf(stderr, "\t-l Loop and repeat the test, but print out information for each run\n");
+                fprintf(stderr, "\t-p Print out progress on 5 second intervals during run\n");
                 fprintf(stderr, "\t-V Verify the retrieved data\n");
                 fprintf(stderr, "\t-v Verbose output\n");
                 fprintf(stderr, "\t-L Use the specified memcached client library\n");
@@ -1099,21 +1100,21 @@ int main(int argc, char **argv) {
                 pthread_create(&threads[ii], 0, test_thread_main, &ctx[ii]);
             }
 
-/*
+
             while (current < no_iterations) {
                 struct report temp = {0};
                 char buff[40];
                 sleep(5);
-                /* print average
+                /* print average */
 
 
                 for (ii = 0; ii < no_threads; ++ii) {
-                    struct report *rep = &reports[ii];
+                    struct ctx *rep = &ctx[ii];
 
-                    temp.set += rep->set;
-                    temp.get += rep->get;
-                    temp.setDelta += rep->setDelta;
-                    temp.getDelta += rep->getDelta;
+                    temp.set += ctx->thr_summary.set;
+                    temp.get += ctx->thr_summary.get;
+                    temp.setDelta += ctx->thr_summary.setDelta;
+                    temp.getDelta += ctx->thr_summary.getDelta;
                 }
 
                 if (progress) {
@@ -1137,7 +1138,7 @@ int main(int argc, char **argv) {
                 }
                 current = temp.set + temp.get;
             }
-*/
+
 
             if (progress) {
 /*
