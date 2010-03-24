@@ -1099,11 +1099,12 @@ int main(int argc, char **argv) {
                 pthread_create(&threads[ii], 0, test_thread_main, &ctx[ii]);
             }
 
+/*
             while (current < no_iterations) {
                 struct report temp = {0};
                 char buff[40];
                 sleep(5);
-                /* print average */
+                /* print average
 
 
                 for (ii = 0; ii < no_threads; ++ii) {
@@ -1136,9 +1137,12 @@ int main(int argc, char **argv) {
                 }
                 current = temp.set + temp.get;
             }
+*/
 
             if (progress) {
+/*
                 fprintf(stdout, "\n");
+*/
             }
 
 
