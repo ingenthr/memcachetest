@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
  * CDDL HEADER START
  *
@@ -99,7 +100,7 @@ static void insert(struct TxnResult** root, struct TxnResult* item) {
     }
 }
 
-int walk(struct TxnResult* node, int (*walk_function)(void *, struct TxnResult* node), void *cookie) {
+static int walk(struct TxnResult* node, int (*walk_function)(void *, struct TxnResult* node), void *cookie) {
     int ret;
     if (node->left) {
         if ((ret = walk(node->left, walk_function, cookie)) != 0) {
@@ -119,6 +120,7 @@ int walk(struct TxnResult* node, int (*walk_function)(void *, struct TxnResult* 
     return 0;
 }
 
+#if 0
 static struct TxnResult *create_txn(struct TxnResult *item) {
     static struct TxnResult *items;
     static int no_left = 0;
@@ -139,6 +141,7 @@ static struct TxnResult *create_txn(struct TxnResult *item) {
 
     return ret;
 }
+#endif
 
 struct walker_execution_time {
     long current;
@@ -193,9 +196,9 @@ static hrtime_t calc_average(struct TxnResult* a) {
 /**
  * External interface
  */
-void record_tx(enum TxnType tx_type, hrtime_t time) {
+void record_tx(enum TxnType tx_type, hrtime_t t) {
     struct TxnResult* new_txn = calloc(1, sizeof(struct TxnResult));
-    new_txn->respTime = time;
+    new_txn->respTime = t;
     new_txn->left = new_txn->right = new_txn->next = NULL;
     pthread_mutex_lock(&lock);
     insert(&txn_list_first, new_txn);
@@ -203,7 +206,8 @@ void record_tx(enum TxnType tx_type, hrtime_t time) {
     txCntStdy[tx_type]++;
 }
 
-void record_error(enum TxnType tx_type, hrtime_t time) {
+void record_error(enum TxnType tx_type, hrtime_t t) {
+    (void)t;
     errCntStdy[tx_type]++;
 }
 

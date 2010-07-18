@@ -10,16 +10,17 @@
 */
 #include <math.h>
 #include <stdlib.h>
+#include "boxmuller.h"
 
 double box_muller(double m, double s)	/* normal random variate generator */
 {				        /* mean m, standard deviation s */
-	double x1, x2, w, y1;
+	double x1, x2, w, _y1;
 	static double y2;
 	static int use_last = 0;
 
 	if (use_last)		        /* use value from previous call */
 	{
-		y1 = y2;
+		_y1 = y2;
 		use_last = 0;
 	}
 	else
@@ -31,12 +32,12 @@ double box_muller(double m, double s)	/* normal random variate generator */
 		} while ( w >= 1.0 );
 
 		w = sqrt( (-2.0 * log( w ) ) / w );
-		y1 = x1 * w;
+		_y1 = x1 * w;
 		y2 = x2 * w;
 		use_last = 1;
 	}
-        
-        double result = ( m + y1 * s );
+
+        double result = ( m + _y1 * s );
 
 	return result;
 }

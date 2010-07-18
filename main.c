@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
  * CDDL HEADER START
  *
@@ -46,6 +47,7 @@
 
 #include "libmemc.h"
 #include "metrics.h"
+#include "boxmuller.h"
 
 #ifndef MAXINT
 /* I couldn't find MAXINT on my MacOSX box.. I should update this... */
@@ -199,8 +201,6 @@ struct connection {
     void *handle;
 };
 
-extern double box_muller(double m, double s);
-
 /**
  * Create a handle to a memcached library
  */
@@ -297,21 +297,21 @@ static void release_memcached_handle(void *handle) {
  * Set a key / value pair on the memcached server
  * @param handle Thandle to the memcached library to use
  * @param key The items key
- * @param keylength The length of the key
+ * @param nkey The length of the key
  * @param data The data to set
  * @param The size of the data to set
  * @return 0 on success -1 otherwise
  */
 static inline int memcached_set_wrapper(struct connection *connection,
-        const char *key,
-        int keylength, const void *data, int size) {
+                                        const char *key, int nkey,
+                                        const void *data, int size) {
     struct memcachelib* lib = (struct memcachelib*) connection->handle;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
         case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
         case LIBMEMCACHED_TEXTUAL:
         {
-            int rc = memcached_set(lib->handle, key, keylength, data, size, 0, 0);
+            int rc = memcached_set(lib->handle, key, nkey, data, size, 0, 0);
             if (rc != MEMCACHED_SUCCESS) {
                 return -1;
             }
@@ -321,12 +321,13 @@ static inline int memcached_set_wrapper(struct connection *connection,
         case LIBMEMC_BINARY:
         case LIBMEMC_TEXTUAL:
         {
-            struct Item mitem = {0};
-            mitem.key = key;
-            mitem.keylen = keylength;
-            /* Set will not modify data */
-            mitem.data = (void*) data;
-            mitem.size = size;
+            struct Item mitem = {
+                .key = key,
+                .keylen = nkey,
+                /* Set will not modify data */
+                .data = (void*)data,
+                .size = size
+            };
             if (libmemc_set(lib->handle, &mitem) != 0) {
                 return -1;
             }
@@ -343,14 +344,13 @@ static inline int memcached_set_wrapper(struct connection *connection,
  * Get the value for a key from the memcached server
  * @param connection the connection to use
  * @param key The items key
- * @param keylength The length of the key
+ * @param nkey The length of the key
  * @param The size of the data
  * @return pointer to the data on success, -1 otherwise
  * TODO: the return of -1 isn't really true
  */
 static inline void *memcached_get_wrapper(struct connection* connection,
-        const char *key,
-        int keylength, size_t *size) {
+                                          const char *key, int nkey, size_t *size) {
     struct memcachelib* lib = (struct memcachelib*) connection->handle;
     void *ret = NULL;
     switch (lib->type) {
@@ -360,7 +360,7 @@ static inline void *memcached_get_wrapper(struct connection* connection,
         {
             memcached_return rc;
             uint32_t flags;
-            ret = memcached_get(lib->handle, key, keylength, size, &flags, &rc);
+            ret = memcached_get(lib->handle, key, nkey, size, &flags, &rc);
             if (rc != MEMCACHED_SUCCESS) {
                 return NULL;
             }
@@ -370,9 +370,10 @@ static inline void *memcached_get_wrapper(struct connection* connection,
         case LIBMEMC_BINARY:
         case LIBMEMC_TEXTUAL:
         {
-            struct Item mitem = {0};
-            mitem.key = key;
-            mitem.keylen = keylength;
+            struct Item mitem = {
+                .key = key,
+                .keylen = nkey
+            };
 
             if (libmemc_get(lib->handle, &mitem) != 0) {
                 return NULL;
@@ -392,7 +393,7 @@ static inline void *memcached_get_wrapper(struct connection* connection,
 
 
 static struct connection* connectionpool;
-static int connection_pool_size = 1;
+static size_t connection_pool_size = 1;
 static int thread_bind_connection = 0;
 
 static int create_connection_pool(void) {
@@ -401,7 +402,7 @@ static int create_connection_pool(void) {
         return -1;
     }
 
-    for (int ii = 0; ii < connection_pool_size; ++ii) {
+    for (size_t ii = 0; ii < connection_pool_size; ++ii) {
         if (pthread_mutex_init(&connectionpool[ii].mutex, NULL) != 0) {
             abort();
         }
@@ -413,7 +414,7 @@ static int create_connection_pool(void) {
 }
 
 static void destroy_connection_pool(void) {
-    for (int ii = 0; ii < connection_pool_size; ++ii) {
+    for (size_t ii = 0; ii < connection_pool_size; ++ii) {
         pthread_mutex_destroy(&connectionpool[ii].mutex);
         release_memcached_handle(connectionpool[ii].handle);
     }
@@ -451,19 +452,19 @@ static void release_connection(struct connection *connection) {
  * @param size the size of the buffer
  * @return buffer
  */
-const char* hrtime2text(hrtime_t time, char *buffer, size_t size) {
+static const char* hrtime2text(hrtime_t t, char *buffer, size_t size) {
     const char * const extensions[] = {"ns", "us", "ms", "s" }; //TODO: get a greek Mu in here correctly
     int id = 0;
 
-    while (time > 9999) {
+    while (t > 9999) {
         ++id;
-        time /= 1000;
+        t /= 1000;
         if (id > 3) {
             break;
         }
     }
 
-    snprintf(buffer, size, "%d %s", (int) time, extensions[id]);
+    snprintf(buffer, size, "%d %s", (int) t, extensions[id]);
     buffer[size - 1] = '\0';
     return buffer;
 }
@@ -475,7 +476,7 @@ const char* hrtime2text(hrtime_t time, char *buffer, size_t size) {
  * @param size the size of the buffer
  * @return buffer
  */
-const char* timeval2text(struct timeval* val, char *buffer, size_t size) {
+static const char* timeval2text(struct timeval* val, char *buffer, size_t size) {
     snprintf(buffer, size, "%2ld.%06lu", (long) val->tv_sec,
             (long) val->tv_usec);
 
@@ -486,7 +487,7 @@ const char* timeval2text(struct timeval* val, char *buffer, size_t size) {
  * Initialize the dataset to work on
  * @return 0 if success, -1 if memory allocation fails
  */
-static int initialize_dataset() {
+static int initialize_dataset(void) {
     uint64_t total = 0;
 
     if (datablock.data != NULL) {
@@ -565,7 +566,7 @@ static int populate_dataset(struct report *rep) {
  *            the result
  * @return arg
  */
-void *populate_thread_main(void* arg) {
+static void *populate_thread_main(void* arg) {
     if (populate_dataset((struct report*) arg) == 0) {
         return arg;
     } else {
@@ -578,7 +579,7 @@ void *populate_thread_main(void* arg) {
  * @param no_threads the number of theads to use
  * @return 0 if success, -1 otherwise
  */
-int populate_data(int no_threads) {
+static int populate_data(int no_threads) {
     int ret = 0;
     if (no_threads > 1) {
         pthread_t *threads = calloc(sizeof (pthread_t), no_threads);
@@ -628,7 +629,7 @@ int populate_data(int no_threads) {
 }
 
 
-struct item get_setval(void) {
+static struct item get_setval(void) {
     struct item ret = { .key = NULL, .keylen = 0, .size = 0 };
 
     if (keyarray != 0) {
@@ -695,14 +696,14 @@ static int test(struct report *rep) {
     rep->bestGet = rep->bestSet = 99999999;
     rep->worstGet = rep->worstSet = 0;
 
-    for (int ii = 0; ii < rep->total; ++ii) {
+    for (size_t ii = 0; ii < rep->total; ++ii) {
         connection = get_connection();
 
         struct item item = get_setval();
 
         // Ensure that the item is paged in..
-        for (int ii = 0; ii < item.keylen; ++ii) {
-            if (item.key[ii] == '\0' || item.key[ii] == '\n') {
+        for (size_t jj = 0; jj < item.keylen; ++jj) {
+            if (item.key[jj] == '\0' || item.key[jj] == '\n') {
                 abort();
             }
         }
@@ -761,8 +762,8 @@ static int test(struct report *rep) {
                 free(data);
             } else {
                 fprintf(stderr, "missing data for <");
-                for (int ii = 0; ii < item.keylen; ++ii) {
-                    fprintf(stderr, "%c", item.key[ii]);
+                for (size_t jj = 0; jj < item.keylen; ++jj) {
+                    fprintf(stderr, "%c", item.key[jj]);
                 }
                 fprintf(stderr, ">\n");
                 // record_error(TX_GET, delta);
@@ -781,7 +782,7 @@ static int test(struct report *rep) {
  *            the result
  * @return arg
  */
-void *test_thread_main(void* arg) {
+static void *test_thread_main(void* arg) {
     test((struct report*) arg);
     return arg;
 }
@@ -790,7 +791,7 @@ void *test_thread_main(void* arg) {
  * Add a host into the list of memcached servers to use
  * @param hostname the hostname:port to connect to
  */
-void add_host(const char *hostname) {
+static void add_host(const char *hostname) {
     struct host *entry = malloc(sizeof (struct host));
     if (entry == 0) {
         fprintf(stderr, "Failed to allocate memory for <%s>. Host ignored\n",
@@ -810,16 +811,15 @@ void add_host(const char *hostname) {
     }
 }
 
-struct addrinfo *lookuphost(const char *hostname, in_port_t port) {
+static struct addrinfo *lookuphost(const char *hostname, in_port_t port) {
     struct addrinfo *ai = 0;
-    struct addrinfo hints = {0};
+    struct addrinfo hints = {
+        .ai_flags = AI_PASSIVE|AI_ADDRCONFIG,
+        .ai_family = AF_UNSPEC,
+        .ai_protocol = IPPROTO_TCP,
+        .ai_socktype = SOCK_STREAM };
     char service[NI_MAXSERV];
     int error;
-
-    hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG;
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_protocol = IPPROTO_TCP;
-    hints.ai_socktype = SOCK_STREAM;
 
     (void) snprintf(service, NI_MAXSERV, "%d", port);
     if ((error = getaddrinfo(hostname, service, &hints, &ai)) != 0) {
@@ -949,9 +949,7 @@ int main(int argc, char **argv) {
     int loop = 0;
     struct rusage rusage;
     struct rusage server_start;
-    struct timeval starttime = {0};
-    int size;
-
+    struct timeval starttime = {.tv_sec = 0};
     gettimeofday(&starttime, NULL);
 
     while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvy:xk:")) != EOF) {
@@ -1057,12 +1055,12 @@ int main(int argc, char **argv) {
         exit(-1);
     }
 
-    if (connection_pool_size < no_threads) {
+    if (connection_pool_size < (size_t)no_threads) {
         connection_pool_size = no_threads;
     }
 
     {
-        int maxthreads = no_threads;
+        size_t maxthreads = no_threads;
         struct rlimit rlim;
 
         if (maxthreads < connection_pool_size) {
@@ -1143,7 +1141,7 @@ int main(int argc, char **argv) {
             }
 
             while (current < no_iterations) {
-                struct report temp = {0};
+                struct report temp = { .offset = 0 };
                 char buff[40];
                 sleep(5);
                 /* print average */
@@ -1313,7 +1311,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to get resource usage: %s\n",
                 strerror(errno));
     } else {
-        struct timeval endtime = {0};
+        struct timeval endtime = { .tv_sec = 0};
         char buffer[128];
 
         gettimeofday(&endtime, NULL);

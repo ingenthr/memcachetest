@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
  * CDDL HEADER START
  *
@@ -25,7 +26,7 @@
 
 #include "libmemc.h"
 
-#if HAVE_PROTOCOL_BINARY
+#ifdef HAVE_MEMCACHED_PROTOCOL_BINARY_H
 #include <memcached/protocol_binary.h>
 #endif
 #include <sys/types.h>
@@ -47,7 +48,7 @@ struct Server {
    const char *errmsg;
    const char *peername;
    char *buffer;
-   int buffersize;
+   size_t buffersize;
 };
 
 enum StoreCommand {add, set, replace};
@@ -148,14 +149,13 @@ int libmemc_get(struct Memcache *handle, struct Item *item) {
 static struct addrinfo *lookuphost(const char *hostname, in_port_t port)
 {
     struct addrinfo *ai = 0;
-    struct addrinfo hints = {0};
+    struct addrinfo hints = {
+        .ai_flags = AI_PASSIVE|AI_ADDRCONFIG,
+        .ai_family = AF_UNSPEC,
+        .ai_protocol = IPPROTO_TCP,
+        .ai_socktype = SOCK_STREAM };
     char service[NI_MAXSERV];
     int error;
-
-    hints.ai_flags = AI_PASSIVE|AI_ADDRCONFIG;
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_protocol = IPPROTO_TCP;
-    hints.ai_socktype = SOCK_STREAM;
 
     (void)snprintf(service, NI_MAXSERV, "%d", port);
     if ((error = getaddrinfo(hostname, service, &hints, &ai)) != 0) {
@@ -238,8 +238,6 @@ static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd,
 
 static size_t server_receive(struct Server* server, char* data, size_t size, int line);
 static int server_sendv(struct Server* server, struct iovec *iov, int iovcnt);
-static int server_send(struct Server* server, const void *data, size_t size);
-static int server_connect(struct Server *server);
 static void server_disconnect(struct Server *server);
 
 void server_destroy(struct Server *server) {
@@ -314,26 +312,6 @@ static int server_connect(struct Server *server)
    return 0;
 }
 
-static int server_send(struct Server* server, const void *data, size_t size) {
-   size_t offset = 0;
-   do {
-      ssize_t sent = send(server->sock, ((const char*)data) + offset, size - offset, 0);
-      if (sent == -1) {
-         if (errno != EINTR) {
-            char errmsg[1024];
-            sprintf(errmsg, "Failed to send data to server: %s", strerror(errno));
-            server->errmsg = strdup(errmsg);
-            server_disconnect(server);
-            return -1;
-         }
-      } else {
-         offset += sent;
-      }
-   } while (offset < size);
-
-   return 0;
-}
-
 static int server_sendv(struct Server* server, struct iovec *iov, int iovcnt) {
 #ifdef WIN32
    // @todo I might have a scattered IO function on windows...
@@ -361,12 +339,12 @@ static int server_sendv(struct Server* server, struct iovec *iov, int iovcnt) {
             return -1;
          }
       } else {
-         if (sent == size) {
+         if ((size_t)sent == size) {
             return 0;
          }
 
          for (int ii = 0; ii < iovcnt && sent > 0; ++ii) {
-            if (iov[ii].iov_len < sent) {
+            if (iov[ii].iov_len < (size_t)sent) {
                size -= iov[ii].iov_len;
                sent -= iov[ii].iov_len;
                iov[ii].iov_len = 0;
@@ -415,7 +393,7 @@ static size_t server_receive(struct Server* server, char* data, size_t size, int
    return offset;
 }
 
-
+#ifdef HAVE_MEMCACHED_PROTOCOL_BINARY_H
 /* Byte swap a 64-bit number */
 static int64_t swap64(int64_t in) {
 #ifndef __sparc
@@ -433,14 +411,18 @@ static int64_t swap64(int64_t in) {
     return in;
 #endif
 }
-
+#endif
 
 /**
  * Implementation of the Binary protocol
  */
 static int binary_get(struct Server* server, struct Item* item)
 {
-#if HAVE_PROTOCOL_BINARY
+#ifndef HAVE_MEMCACHED_PROTOCOL_BINARY_H
+   (void)server;
+   (void)item;
+   return -1;
+#else
    uint16_t keylen = item->keylen;
    uint32_t bodylen = keylen;
 
@@ -490,23 +472,23 @@ static int binary_get(struct Server* server, struct Item* item)
       if (response.message.header.response.extlen != 0) {
          assert(response.message.header.response.extlen == 4);
          uint32_t flags;
-         struct iovec iovec[2];
-         iovec[0].iov_base = (void*)&flags;
-         iovec[0].iov_len = sizeof(flags);
-         iovec[1].iov_base = item->data;
-         iovec[1].iov_len = item->size;
+         struct iovec iov[2];
+         iov[0].iov_base = (void*)&flags;
+         iov[0].iov_len = sizeof(flags);
+         iov[1].iov_base = item->data;
+         iov[1].iov_len = item->size;
 
-         ssize_t nread = readv(server->sock, iovec, 2);
+         nread = readv(server->sock, iovec, 2);
          if (nread < bodylen) {
              // partial read.. read the rest!
              nread -= 4;
              size_t left = item->size - nread;
-             if (server_receive(server, item->data + nread, left, 0) != left) {
+             if (server_receive(server, (char*)(item->data) + nread, left, 0) != left) {
                  abort();
              }
          }
       } else {
-         size_t nread = server_receive(server, item->data, item->size, 0);
+         nread = server_receive(server, item->data, item->size, 0);
          assert(nread == item->size);
       }
 
@@ -527,14 +509,18 @@ static int binary_get(struct Server* server, struct Item* item)
 
    return 0;
 #endif
-   return -1;
 }
 
 static int binary_store(struct Server* server,
                          enum StoreCommand cmd,
                          const struct Item *item)
 {
-#if HAVE_PROTOCOL_BINARY
+#ifndef HAVE_MEMCACHED_PROTOCOL_BINARY_H
+   (void)server;
+   (void)cmd;
+   (void)item;
+   return -1;
+#else
    protocol_binary_request_set request = { .bytes = {0} };
    request.message.header.request.magic = PROTOCOL_BINARY_REQ;
 
@@ -593,13 +579,12 @@ static int binary_store(struct Server* server,
          return -1;
       }
 
-      size_t nread = server_receive(server, buffer, len, 0);
+      nread = server_receive(server, buffer, len, 0);
       free(buffer);
    }
 
    return (response.message.header.response.status == 0) ? 0 : -1;
 #endif
-  return -1;
 }
 
 /**
