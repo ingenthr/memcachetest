@@ -25,6 +25,7 @@
 #include "config.h"
 
 #include "libmemc.h"
+#include "vbucket.h"
 
 #ifdef HAVE_MEMCACHED_PROTOCOL_BINARY_H
 #include <memcached/protocol_binary.h>
@@ -426,12 +427,16 @@ static int binary_get(struct Server* server, struct Item* item)
    uint16_t keylen = item->keylen;
    uint32_t bodylen = keylen;
 
-   protocol_binary_request_get request = { .bytes = {0} };
-   request.message.header.request.magic = PROTOCOL_BINARY_REQ;
-   request.message.header.request.opcode = PROTOCOL_BINARY_CMD_GET;
-   request.message.header.request.keylen = htons(keylen);
-   request.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
-   request.message.header.request.bodylen = htonl(bodylen);
+   protocol_binary_request_get request = {
+       .message.header.request = {
+           .magic = PROTOCOL_BINARY_REQ,
+           .opcode = PROTOCOL_BINARY_CMD_GET,
+           .keylen = htons(keylen),
+           .datatype = PROTOCOL_BINARY_RAW_BYTES,
+           .vbucket = get_vbucket(item->key, keylen),
+           .bodylen = htonl(bodylen)
+       }
+   };
 
    struct iovec iovec[2];
    iovec[0].iov_base = (void*)&request;
@@ -521,30 +526,37 @@ static int binary_store(struct Server* server,
    (void)item;
    return -1;
 #else
-   protocol_binary_request_set request = { .bytes = {0} };
-   request.message.header.request.magic = PROTOCOL_BINARY_REQ;
+   uint16_t keylen = item->keylen;
+   uint8_t opcode;
 
    switch (cmd) {
    case add :
-      request.message.header.request.opcode = PROTOCOL_BINARY_CMD_ADD; break;
+      opcode = PROTOCOL_BINARY_CMD_ADD; break;
    case set :
-      request.message.header.request.opcode = PROTOCOL_BINARY_CMD_SET; break;
+      opcode = PROTOCOL_BINARY_CMD_SET; break;
    case replace :
-      request.message.header.request.opcode = PROTOCOL_BINARY_CMD_REPLACE; break;
+      opcode = PROTOCOL_BINARY_CMD_REPLACE; break;
    default:
       abort();
    }
 
-   uint16_t keylen = item->keylen;
-   request.message.header.request.keylen = htons(keylen);
-   request.message.header.request.extlen = 8;
-   request.message.header.request.datatype = 0;
-   request.message.header.request.reserved = 0;
-   request.message.header.request.bodylen = htonl(keylen + item->size + 8);
-   request.message.header.request.opaque = 0;
-   request.message.header.request.cas = swap64(item->cas_id);
-   request.message.body.flags = 0;
-   request.message.body.expiration = htonl(item->exptime);
+   protocol_binary_request_set request = {
+       .message.header.request = {
+           .magic = PROTOCOL_BINARY_REQ,
+           .opcode = opcode,
+           .keylen = htons(keylen),
+           .extlen = 8,
+           .datatype = 0,
+           .vbucket = get_vbucket(item->key, keylen),
+           .bodylen = htonl(keylen + item->size + 8),
+           .opaque = 0,
+           .cas = swap64(item->cas_id)
+       },
+       .message.body = {
+           .flags = 0,
+           .expiration = htonl(item->exptime)
+       }
+   };
 
    struct iovec iovec[3];
    iovec[0].iov_base = (void*)&request;

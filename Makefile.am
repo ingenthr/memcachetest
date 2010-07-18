@@ -7,6 +7,7 @@ memcachetest_SOURCES = \
                        libmemc.c libmemc.h \
                        main.c \
                        metrics.c metrics.h \
-                       timer.c
-memcachetest_LDADD = $(LIBMEMCACHED)
+                       timer.c \
+                       vbucket.c vbucket.h
+memcachetest_LDADD = $(LIBMEMCACHED) $(LIBVBUCKET)
 

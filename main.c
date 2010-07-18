@@ -48,6 +48,7 @@
 #include "libmemc.h"
 #include "metrics.h"
 #include "boxmuller.h"
+#include "vbucket.h"
 
 #ifndef MAXINT
 /* I couldn't find MAXINT on my MacOSX box.. I should update this... */
@@ -952,7 +953,7 @@ int main(int argc, char **argv) {
     struct timeval starttime = {.tv_sec = 0};
     gettimeofday(&starttime, NULL);
 
-    while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvy:xk:")) != EOF) {
+    while ((cmd = getopt(argc, argv, "QW:MpL:P:Fm:t:h:i:s:c:VlSvy:xk:C:")) != EOF) {
         switch (cmd) {
             case 'p':
                 progress = 1;
@@ -1023,10 +1024,19 @@ int main(int argc, char **argv) {
                 set_bench = 1;
                 populate = 0;
                 break;
+            case 'C':
+#ifndef HAVE_LIBVBUCKET
+                fprintf(stderr, "You need to rebuild memcachetest with libvbucket\n");
+                return 1;
+#else
+                if (!initialize_vbuckets(optarg)) {
+                    return -1;
+                }
+#endif
             default:
                 fprintf(stderr, "Usage: test [-h host[:port]] [-t #threads]");
                 fprintf(stderr, " [-T] [-i #items] [-c #iterations] [-v] ");
-                fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-x] [-y stddev] [-k keyfile]\n");
+                fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-x] [-y stddev] [-k keyfile] [-C vbucketconfig]\n");
                 fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
                 fprintf(stderr, "\t-t The number of threads to use\n");
                 fprintf(stderr, "\t-m The max message size to operate on\n");
@@ -1046,6 +1056,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "\t-k The file with keys to be retrieved\n");
                 fprintf(stderr, "\t-x randomly request from a set in a supplied file\n");
                 fprintf(stderr, "\t\t(implies -S, requires -k)\n");
+                fprintf(stderr, "\t-C Read vbucket data\n");
                 return 1;
         }
     }
