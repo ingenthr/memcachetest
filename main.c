@@ -566,8 +566,11 @@ static int populate_dataset(struct report *rep) {
  * @return arg
  */
 void *populate_thread_main(void* arg) {
-    populate_dataset((struct report*) arg);
-    return arg;
+    if (populate_dataset((struct report*) arg) == 0) {
+        return arg;
+    } else {
+        return NULL;
+    }
 }
 
 /**
@@ -576,6 +579,7 @@ void *populate_thread_main(void* arg) {
  * @return 0 if success, -1 otherwise
  */
 int populate_data(int no_threads) {
+    int ret = 0;
     if (no_threads > 1) {
         pthread_t *threads = calloc(sizeof (pthread_t), no_threads);
         struct report *reports = calloc(sizeof (struct report), no_threads);
@@ -605,8 +609,11 @@ int populate_data(int no_threads) {
         }
 
         for (ii = 0; ii < no_threads; ++ii) {
-            void *ret;
-            pthread_join(threads[ii], &ret);
+            void *threadret;
+            pthread_join(threads[ii], &threadret);
+            if (threadret == NULL) {
+               ret = -1;
+            }
         }
         free(threads);
         free(reports);
@@ -614,12 +621,10 @@ int populate_data(int no_threads) {
         struct report report;
         report.offset = 0;
         report.total = no_items;
-
-        if (populate_dataset(&report) == -1) {
-            return 1;
-        }
+        ret = populate_dataset(&report);
     }
-    return 0;
+
+    return ret;
 }
 
 
