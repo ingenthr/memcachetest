@@ -39,9 +39,6 @@
 #include <sys/resource.h>
 #include <assert.h>
 #include <string.h>
-#ifdef HAVE_MMAN_H
-#include <sys/mman.h>
-#endif
 
 #ifdef HAVE_LIBMEMCACHED
 #include "libmemcached/memcached.h"
@@ -905,8 +902,8 @@ static int load_keys(const char *fname) {
         fclose(fp);
         return -1;
     }
-#ifdef HAVE_MADVISE
-    (void) madvise(keyarray, st.st_size, MADV_RANDOM);
+#ifdef HAVE_POSIX_MADVISE
+    (void) posix_madvise(keyarray, st.st_size, POSIX_MADV_RANDOM);
 #endif
 
 #else

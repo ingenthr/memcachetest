@@ -60,10 +60,10 @@ struct Memcache {
 
 static struct Server* server_create(const char *name, in_port_t port);
 static void server_destroy(struct Server *server);
-static int textual_store(struct Server* server, enum StoreCommand cmd, 
+static int textual_store(struct Server* server, enum StoreCommand cmd,
                         const struct Item *item);
 static int textual_get(struct Server* server, struct Item* item);
-static int binary_store(struct Server* server, enum StoreCommand cmd, 
+static int binary_store(struct Server* server, enum StoreCommand cmd,
                         const struct Item *item);
 static int binary_get(struct Server* server, struct Item* item);
 static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd, const struct Item *item);
@@ -92,23 +92,23 @@ void libmemc_destroy(struct Memcache* handle) {
 int libmemc_add_server(struct Memcache *handle, const char *host, in_port_t port) {
    struct Server** servers = calloc(handle->no_servers + 1, sizeof(struct Server));
    struct Server** old = handle->servers;
-    
+
    if (servers == 0) {
       return -1;
    }
-    
+
    for (int ii = 0; ii < handle->no_servers; ++ii) {
       servers[ii] = handle->servers[ii];
    }
-    
+
    handle->servers = servers;
    free(old);
-    
+
    struct Server *server = server_create(host, port);
    if (server != NULL) {
       handle->servers[handle->no_servers++] = server;
    }
-    
+
    return 0;
 }
 
@@ -117,11 +117,11 @@ int libmemc_add(struct Memcache *handle, const struct Item *item) {
 }
 
 int libmemc_set(struct Memcache *handle, const struct Item *item) {
-   return libmemc_store(handle, set, item);    
+   return libmemc_store(handle, set, item);
 }
 
 int libmemc_replace(struct Memcache *handle, const struct Item *item) {
-   return libmemc_store(handle, replace, item);        
+   return libmemc_store(handle, replace, item);
 }
 
 int libmemc_get(struct Memcache *handle, struct Item *item) {
@@ -156,7 +156,7 @@ static struct addrinfo *lookuphost(const char *hostname, in_port_t port)
     hints.ai_family = AF_UNSPEC;
     hints.ai_protocol = IPPROTO_TCP;
     hints.ai_socktype = SOCK_STREAM;
-    
+
     (void)snprintf(service, NI_MAXSERV, "%d", port);
     if ((error = getaddrinfo(hostname, service, &hints, &ai)) != 0) {
        if (error != EAI_SYSTEM) {
@@ -173,7 +173,7 @@ int libmemc_connect_server(const char *hostname, in_port_t port)
 {
     struct addrinfo *ai = lookuphost(hostname, port);
     int sock = -1;
-    if (ai != NULL) { 
+    if (ai != NULL) {
        if ((sock = socket(ai->ai_family, ai->ai_socktype,
                           ai->ai_protocol)) != -1) {
           if (connect(sock, ai->ai_addr, ai->ai_addrlen) == -1) {
@@ -185,7 +185,7 @@ int libmemc_connect_server(const char *hostname, in_port_t port)
        } else {
           fprintf(stderr, "Failed to create socket: %s\n", strerror(errno));
        }
-    
+
        freeaddrinfo(ai);
     }
     return sock;
@@ -216,7 +216,7 @@ static struct Server *get_server(struct Memcache *handle, const char *key) {
    }
 }
 
-static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd, 
+static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd,
                          const struct Item *item) {
    struct Server* server = get_server(handle, item->key);
    if (server == NULL) {
@@ -227,7 +227,7 @@ static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd,
             return -1;
          }
       }
-      
+
       if (handle->protocol == Binary) {
          return binary_store(server, cmd, item);
       } else {
@@ -258,7 +258,7 @@ struct Server* server_create(const char *name, in_port_t port) {
    if (ai != NULL) {
       ret = calloc(1, sizeof(struct Server));
       if (ret != 0) {
-         char buffer[1024];         
+         char buffer[1024];
          ret->sock = -1;
          ret->errmsg = 0;
          ret->addrinfo = ai;
@@ -273,7 +273,7 @@ struct Server* server_create(const char *name, in_port_t port) {
          }
       }
    }
-    
+
    return ret;
 }
 
@@ -287,7 +287,7 @@ static void server_disconnect(struct Server *server) {
 static int server_connect(struct Server *server)
 {
    int flag = 1;
-   
+
    if ((server->sock = socket(server->addrinfo->ai_family,
                               server->addrinfo->ai_socktype,
                               server->addrinfo->ai_protocol)) == -1) {
@@ -301,7 +301,7 @@ static int server_connect(struct Server *server)
                   &flag, sizeof(flag)) == -1) {
       perror("Failed to set TCP_NODELAY");
    }
-   
+
    if (connect(server->sock, server->addrinfo->ai_addr,
                server->addrinfo->ai_addrlen) == -1) {
       char errmsg[1024];
@@ -310,7 +310,7 @@ static int server_connect(struct Server *server)
       server_disconnect(server);
       return -1;
    }
-    
+
    return 0;
 }
 
@@ -330,7 +330,7 @@ static int server_send(struct Server* server, const void *data, size_t size) {
          offset += sent;
       }
    } while (offset < size);
-    
+
    return 0;
 }
 
@@ -349,7 +349,7 @@ static int server_sendv(struct Server* server, struct iovec *iov, int iovcnt) {
    for (int ii = 0;  ii < iovcnt; ++ ii) {
       size += iov[ii].iov_len;
    }
-    
+
    do {
       ssize_t sent = writev(server->sock, iov, iovcnt);
       if (sent == -1) {
@@ -364,19 +364,14 @@ static int server_sendv(struct Server* server, struct iovec *iov, int iovcnt) {
          if (sent == size) {
             return 0;
          }
-            
+
          for (int ii = 0; ii < iovcnt && sent > 0; ++ii) {
             if (iov[ii].iov_len < sent) {
                size -= iov[ii].iov_len;
                sent -= iov[ii].iov_len;
                iov[ii].iov_len = 0;
             } else {
-#ifdef __sun
-               iov[ii].iov_base += sent;
-#else
-               // iov_base is a void pointer...
                iov[ii].iov_base = ((char*)iov[ii].iov_base) + sent;
-#endif
                iov[ii].iov_len -= sent;
                size -= sent;
                break;
@@ -410,13 +405,13 @@ static size_t server_receive(struct Server* server, char* data, size_t size, int
          offset += nread;
       }
    } while (offset < size && !stop);
-    
+
    if (line && !stop) {
       server->errmsg = strdup("Protocol error");
       server_disconnect(server);
       return -1;
    }
-    
+
    return offset;
 }
 
@@ -443,7 +438,7 @@ static int64_t swap64(int64_t in) {
 /**
  * Implementation of the Binary protocol
  */
-static int binary_get(struct Server* server, struct Item* item) 
+static int binary_get(struct Server* server, struct Item* item)
 {
 #if HAVE_PROTOCOL_BINARY
    uint16_t keylen = item->keylen;
@@ -455,7 +450,7 @@ static int binary_get(struct Server* server, struct Item* item)
    request.message.header.request.keylen = htons(keylen);
    request.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
    request.message.header.request.bodylen = htonl(bodylen);
-   
+
    struct iovec iovec[2];
    iovec[0].iov_base = (void*)&request;
    iovec[0].iov_len = sizeof(request);
@@ -469,7 +464,7 @@ static int binary_get(struct Server* server, struct Item* item)
                                  sizeof(response.bytes), 0);
    if (nread != sizeof(response)) {
       server->errmsg = strdup("Protocol error");
-      server_disconnect(server);      
+      server_disconnect(server);
       return -1;
    }
 
@@ -487,11 +482,11 @@ static int binary_get(struct Server* server, struct Item* item)
          item->data = malloc(item->size);
          if (item->data == NULL) {
             server->errmsg = strdup("failed to allocate memory\n");
-            server_disconnect(server);      
+            server_disconnect(server);
             return -1;
          }
       }
-      
+
       if (response.message.header.response.extlen != 0) {
          assert(response.message.header.response.extlen == 4);
          uint32_t flags;
@@ -514,19 +509,19 @@ static int binary_get(struct Server* server, struct Item* item)
          size_t nread = server_receive(server, item->data, item->size, 0);
          assert(nread == item->size);
       }
-      
+
       item->cas_id = swap64(response.message.header.response.cas);
    } else {
       char *buffer = malloc(bodylen + 1);
       if (buffer == NULL) {
          server->errmsg = strdup("failed to allocate memory\n");
-         server_disconnect(server);      
+         server_disconnect(server);
          return -1;
       }
       buffer[bodylen] = '\0';
       server_receive(server, buffer, bodylen, 0);
       server->errmsg = buffer;
-      
+
       return -1;
    }
 
@@ -535,9 +530,9 @@ static int binary_get(struct Server* server, struct Item* item)
    return -1;
 }
 
-static int binary_store(struct Server* server, 
-                         enum StoreCommand cmd, 
-                         const struct Item *item)  
+static int binary_store(struct Server* server,
+                         enum StoreCommand cmd,
+                         const struct Item *item)
 {
 #if HAVE_PROTOCOL_BINARY
    protocol_binary_request_set request = { .bytes = {0} };
@@ -564,7 +559,7 @@ static int binary_store(struct Server* server,
    request.message.header.request.cas = swap64(item->cas_id);
    request.message.body.flags = 0;
    request.message.body.expiration = htonl(item->exptime);
-   
+
    struct iovec iovec[3];
    iovec[0].iov_base = (void*)&request;
    iovec[0].iov_len = sizeof(request);
@@ -580,21 +575,21 @@ static int binary_store(struct Server* server,
                                  sizeof(response.bytes), 0);
    if (nread != sizeof(response)) {
       server->errmsg = strdup("Protocol error");
-      server_disconnect(server);      
+      server_disconnect(server);
       return -1;
    }
 
    if (response.message.header.response.status == 0 &&
        response.message.header.response.bodylen != 0) {
       server->errmsg = strdup("Unexpected data returned\n");
-      server_disconnect(server);      
+      server_disconnect(server);
       return -1;
    } else if (response.message.header.response.bodylen != 0) {
       uint32_t len = ntohl(response.message.header.response.bodylen);
       char* buffer = malloc(len);
       if (buffer == 0) {
          server->errmsg = strdup("failed to allocate memory\n");
-         server_disconnect(server);      
+         server_disconnect(server);
          return -1;
       }
 
@@ -628,14 +623,14 @@ static int parse_value_line(char *header, uint32_t* flag, size_t* size, char** d
    if (strstr(end, "\r\n") != end) {
       return -1;
    }
-    
+
    *data = end + 2;
    return 0;
 }
 
-static int textual_get(struct Server* server, struct Item* item) {    
+static int textual_get(struct Server* server, struct Item* item) {
    uint32_t flag;
-   
+
    struct iovec iovec[3];
    iovec[0].iov_base = (char*)"get ";
    iovec[0].iov_len = 4;
@@ -644,14 +639,14 @@ static int textual_get(struct Server* server, struct Item* item) {
    iovec[2].iov_base = (char*)"\r\n";
    iovec[2].iov_len = 2;
    server_sendv(server, iovec, 3);
-   
+
    size_t nread = server_receive(server, server->buffer,server->buffersize, 1);
-    
+
    // Split the header line
    if (strstr(server->buffer, "VALUE ") == server->buffer) {
       size_t elemsize;
       char *ptr;
-        
+
       if (parse_value_line(server->buffer + 6, &flag, &elemsize, &ptr) == -1){
          server->errmsg = strdup("Protocol error");
          server_disconnect(server);
@@ -662,14 +657,14 @@ static int textual_get(struct Server* server, struct Item* item) {
 #endif
       ptrdiff_t headsize = ptr - server->buffer;
       size_t chunk = nread - headsize;
-        
+
       if (chunk < (elemsize + 7)) {
          // I don't have all of the data.. keep on reading
          server_receive(server, server->buffer + nread,
                         (elemsize - chunk) + 7, 0);
       }
-        
-      void *result = ptr;        
+
+      void *result = ptr;
       if (elemsize > item->size) {
          if (item->data != 0) {
             free(item->data);
@@ -681,7 +676,7 @@ static int textual_get(struct Server* server, struct Item* item) {
             return -1;
          }
       }
-        
+
       memcpy(item->data, result, item->size);
       return 0;
    } else if (strstr(server->buffer, "END") == server->buffer) {
@@ -691,17 +686,17 @@ static int textual_get(struct Server* server, struct Item* item) {
    abort();
 }
 
-static int textual_store(struct Server* server, 
-                         enum StoreCommand cmd, 
+static int textual_store(struct Server* server,
+                         enum StoreCommand cmd,
                          const struct Item *item)  {
    static const char* const commands[] = { "add ", "set ", "replace " };
-    
+
    uint32_t flags = 0;
    const void *dta = item->data;
-   size_t size = item->size;    
-   ssize_t len = sprintf(server->buffer, " %d %ld %ld\r\n", 
+   size_t size = item->size;
+   ssize_t len = sprintf(server->buffer, " %d %ld %ld\r\n",
            flags, (long)item->exptime, (long)item->size);
-    
+
    struct iovec iovec[5];
    iovec[0].iov_base = (char*)commands[cmd];
    iovec[0].iov_len = strlen(commands[cmd]);
@@ -714,7 +709,7 @@ static int textual_store(struct Server* server,
    iovec[4].iov_base = (char*)"\r\n";
    iovec[4].iov_len = 2;
    server_sendv(server, iovec, 5);
-    
+
    size_t offset = 0;
    do {
       len = recv(server->sock, (void*)(server->buffer + offset),

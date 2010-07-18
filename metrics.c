@@ -31,6 +31,7 @@
  *
  */
 
+#include "config.h"
 #include <sys/time.h>
 #include <stdlib.h>
 #include <assert.h>
