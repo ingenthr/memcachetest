@@ -954,7 +954,7 @@ int main(int argc, char **argv) {
     int size;
     gettimeofday(&starttime, NULL);
 
-    while ((cmd = getopt(argc, argv, "QW:MpL:P:Fm:t:h:i:s:c:VlSvy:xk:C:")) != EOF) {
+    while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvy:xk:C:")) != EOF) {
         switch (cmd) {
             case 'p':
                 progress = 1;
