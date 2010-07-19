@@ -951,6 +951,7 @@ int main(int argc, char **argv) {
     struct rusage rusage;
     struct rusage server_start;
     struct timeval starttime = {.tv_sec = 0};
+    int size;
     gettimeofday(&starttime, NULL);
 
     while ((cmd = getopt(argc, argv, "QW:MpL:P:Fm:t:h:i:s:c:VlSvy:xk:C:")) != EOF) {
@@ -973,7 +974,7 @@ int main(int argc, char **argv) {
                 current_memcached_library = atoi(optarg);
                 break;
             case 'M':
-                int size = atoi(optarg);
+                size = atoi(optarg);
                 if (size > 1024 * 1024) {
                     fprintf(stderr, "WARNING: Too big block size %d\n", size);
                 } else {
