@@ -433,12 +433,12 @@ static struct connection *get_connection(void) {
         return &connectionpool[0];
 #endif
     } else {
-        int index;
+        int idx;
         do {
-            index = random() % connection_pool_size;
-        } while (pthread_mutex_trylock(&connectionpool[index].mutex) != 0);
+            idx = random() % connection_pool_size;
+        } while (pthread_mutex_trylock(&connectionpool[idx].mutex) != 0);
 
-        return &connectionpool[index];
+        return &connectionpool[idx];
     }
 }
 
@@ -973,7 +973,7 @@ int main(int argc, char **argv) {
                 current_memcached_library = atoi(optarg);
                 break;
             case 'M':
-                size = atoi(optarg);
+                int size = atoi(optarg);
                 if (size > 1024 * 1024) {
                     fprintf(stderr, "WARNING: Too big block size %d\n", size);
                 } else {
@@ -1267,7 +1267,7 @@ int main(int argc, char **argv) {
 
         }
 
-        struct ResultMetrics *getResults = calc_metrics(TX_GET); // this does only gets at the moment need a smarter calc_metrics
+        // struct ResultMetrics *getResults = calc_metrics(TX_GET); // this does only gets at the moment need a smarter calc_metrics
 
         /* print out the results */
 
