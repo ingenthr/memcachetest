@@ -434,7 +434,8 @@ static int binary_get(struct Server* server, struct Item* item)
            .keylen = htons(keylen),
            .datatype = PROTOCOL_BINARY_RAW_BYTES,
            .vbucket = get_vbucket(item->key, keylen),
-           .bodylen = htonl(bodylen)
+           .bodylen = htonl(bodylen),
+           .opaque = 0
        }
    };
 
