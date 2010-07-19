@@ -736,6 +736,8 @@ static int textual_store(struct Server* server,
             } else if (strstr(server->buffer, "SERVER_ERROR ") == server->buffer) {
                server->errmsg = strdup("textual_store SERVER_ERROR");
                return -1;
+            } else {
+                assert("Unexepcted reply from server.");
             }
          }
       }
