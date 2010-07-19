@@ -733,6 +733,9 @@ static int textual_store(struct Server* server,
                               "NOT_STORED\r\n") == server->buffer) {
                server->errmsg = strdup("Item NOT stored");
                return -1;
+            } else if (strstr(server->buffer, "SERVER_ERROR ") == server->buffer) {
+               server->errmsg = strdup("textual_store SERVER_ERROR");
+               return -1;
             }
          }
       }
