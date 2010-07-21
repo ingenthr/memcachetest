@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
  * CDDL HEADER START
  *
@@ -21,7 +22,7 @@
  * Portions Copyright 2009 Matt Ingenthron
  */
 #ifndef LIBMEMC_LIBMEMC_H
-#define	LIBMEMC_LIBMEMC_H
+#define LIBMEMC_LIBMEMC_H
 
 #include <sys/types.h>
 #include <arpa/inet.h>
@@ -30,29 +31,29 @@
 extern "C"  {
 #endif
 
-struct Item {
-   uint64_t cas_id;
-   const char *key;
-   int keylen;
-   void *data;
-   size_t size;
-   size_t exptime;
-};
+    struct Item {
+        uint64_t cas_id;
+        const char *key;
+        int keylen;
+        void *data;
+        size_t size;
+        size_t exptime;
+    };
 
-enum Protocol { Binary = 1, Textual = 2 };
+    enum Protocol { Binary = 1, Textual = 2 };
 
-struct Memcache* libmemc_create(enum Protocol protocol);
-void libmemc_destroy(struct Memcache* handle);
-int libmemc_add_server(struct Memcache *handle, const char *host, in_port_t port);
-int libmemc_add(struct Memcache *handle, const struct Item *item);
-int libmemc_set(struct Memcache *handle, const struct Item *item);
-int libmemc_replace(struct Memcache *handle, const struct Item *item);
-int libmemc_get(struct Memcache *handle, struct Item *item);
-
-int libmemc_connect_server(const char *hostname, in_port_t port);
+    struct Memcache* libmemc_create(enum Protocol protocol);
+    void libmemc_destroy(struct Memcache* handle);
+    int libmemc_add_server(struct Memcache *handle, const char *host,
+                           in_port_t port);
+    int libmemc_add(struct Memcache *handle, const struct Item *item);
+    int libmemc_set(struct Memcache *handle, const struct Item *item);
+    int libmemc_replace(struct Memcache *handle, const struct Item *item);
+    int libmemc_get(struct Memcache *handle, struct Item *item);
+    int libmemc_connect_server(const char *hostname, in_port_t port);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif	/* LIBMEMC_LIBMEMC_H */
+#endif  /* LIBMEMC_LIBMEMC_H */

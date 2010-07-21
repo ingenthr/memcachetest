@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
  * CDDL HEADER START
  *
@@ -27,35 +28,35 @@
 #include <stdint.h>
 #include "config.h"
 
-#ifdef	__cplusplus
+#ifdef  __cplusplus
 extern "C" {
 #endif
 
-enum TxnType { TX_GET, TX_SET, TX_ADD, TX_REPLACE, TX_APPEND, TX_PREPEND, TX_CAS };
+    enum TxnType { TX_GET, TX_SET, TX_ADD, TX_REPLACE, TX_APPEND, TX_PREPEND, TX_CAS };
 
-void record_tx(enum TxnType, hrtime_t);
-void record_error(enum TxnType, hrtime_t);
-struct ResultMetrics *calc_metrics(enum TxnType tx_type);
+    void record_tx(enum TxnType, hrtime_t);
+    void record_error(enum TxnType, hrtime_t);
+    struct ResultMetrics *calc_metrics(enum TxnType tx_type);
 
-struct TxnResult {
-    hrtime_t respTime;
-    struct TxnResult * next;
-    struct TxnResult* left;
-    struct TxnResult* right;
-};
+    struct TxnResult {
+        hrtime_t respTime;
+        struct TxnResult * next;
+        struct TxnResult* left;
+        struct TxnResult* right;
+    };
 
-struct ResultMetrics {
-    hrtime_t max_result;
-    hrtime_t min_result;
-    hrtime_t max90th_result;
-    hrtime_t max95th_result;
-    hrtime_t average;
-    long success_count;
-    long error_count;
-};
+    struct ResultMetrics {
+        hrtime_t max_result;
+        hrtime_t min_result;
+        hrtime_t max90th_result;
+        hrtime_t max95th_result;
+        hrtime_t average;
+        long success_count;
+        long error_count;
+    };
 
-#ifdef	__cplusplus
+#ifdef  __cplusplus
 }
 #endif
 
-#endif	/* _METRICS_H */
+#endif  /* _METRICS_H */

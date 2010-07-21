@@ -160,7 +160,7 @@ int verify_data = 0;
 int setprc = 33;
 
 /** what kind of benchmark are we running
- TODO: this shouldn't be a global, or if so shouldn't be done this way */
+    TODO: this shouldn't be a global, or if so shouldn't be done this way */
 int set_bench = 0; /* whether or not this is a simple dataset bench */
 
 double stddev = 0;
@@ -211,7 +211,7 @@ static void *create_memcached_handle(void) {
 
     switch (current_memcached_library) {
 #ifdef HAVE_LIBMEMCACHED
-        case LIBMEMCACHED_TEXTUAL:
+    case LIBMEMCACHED_TEXTUAL:
         {
             memcached_st *memc = memcached_create(NULL);
             for (struct host *host = hosts; host != NULL; host = host->next) {
@@ -222,8 +222,8 @@ static void *create_memcached_handle(void) {
             }
             ret->handle = memc;
         }
-            break;
-        case LIBMEMCACHED_BINARY:
+        break;
+    case LIBMEMCACHED_BINARY:
         {
             memcached_st *memc = memcached_create(NULL);
             memcached_behavior_set(memc, MEMCACHED_BEHAVIOR_BINARY_PROTOCOL, 1);
@@ -235,9 +235,9 @@ static void *create_memcached_handle(void) {
             }
             ret->handle = memc;
         }
-            break;
+        break;
 #endif
-        case LIBMEMC_TEXTUAL:
+    case LIBMEMC_TEXTUAL:
         {
             struct Memcache* memcache = libmemc_create(Textual);
             for (struct host *host = hosts; host != NULL; host = host->next) {
@@ -248,8 +248,8 @@ static void *create_memcached_handle(void) {
             }
             ret->handle = memcache;
         }
-            break;
-        case LIBMEMC_BINARY:
+        break;
+    case LIBMEMC_BINARY:
         {
             struct Memcache* memcache = libmemc_create(Binary);
             for (struct host *host = hosts; host != NULL; host = host->next) {
@@ -260,9 +260,9 @@ static void *create_memcached_handle(void) {
             }
             ret->handle = memcache;
         }
-            break;
-        default:
-            abort();
+        break;
+    default:
+        abort();
     }
 
     return ret;
@@ -275,22 +275,22 @@ static void release_memcached_handle(void *handle) {
     struct memcachelib* lib = (struct memcachelib*) handle;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
-        case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
-        case LIBMEMCACHED_TEXTUAL:
+    case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
+    case LIBMEMCACHED_TEXTUAL:
         {
             memcached_st *memc = lib->handle;
             memcached_free(memc);
         }
-            break;
+        break;
 #endif
 
-        case LIBMEMC_BINARY:
-        case LIBMEMC_TEXTUAL:
-            libmemc_destroy(lib->handle);
-            break;
+    case LIBMEMC_BINARY:
+    case LIBMEMC_TEXTUAL:
+        libmemc_destroy(lib->handle);
+        break;
 
-        default:
-            abort();
+    default:
+        abort();
     }
 }
 
@@ -309,18 +309,18 @@ static inline int memcached_set_wrapper(struct connection *connection,
     struct memcachelib* lib = (struct memcachelib*) connection->handle;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
-        case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
-        case LIBMEMCACHED_TEXTUAL:
+    case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
+    case LIBMEMCACHED_TEXTUAL:
         {
             int rc = memcached_set(lib->handle, key, nkey, data, size, 0, 0);
             if (rc != MEMCACHED_SUCCESS) {
                 return -1;
             }
         }
-            break;
+        break;
 #endif
-        case LIBMEMC_BINARY:
-        case LIBMEMC_TEXTUAL:
+    case LIBMEMC_BINARY:
+    case LIBMEMC_TEXTUAL:
         {
             struct Item mitem = {
                 .key = key,
@@ -333,10 +333,10 @@ static inline int memcached_set_wrapper(struct connection *connection,
                 return -1;
             }
         }
-            break;
+        break;
 
-        default:
-            abort();
+    default:
+        abort();
     }
     return 0;
 }
@@ -356,8 +356,8 @@ static inline void *memcached_get_wrapper(struct connection* connection,
     void *ret = NULL;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
-        case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
-        case LIBMEMCACHED_TEXTUAL:
+    case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
+    case LIBMEMCACHED_TEXTUAL:
         {
             memcached_return rc;
             uint32_t flags;
@@ -366,10 +366,10 @@ static inline void *memcached_get_wrapper(struct connection* connection,
                 return NULL;
             }
         }
-            break;
+        break;
 #endif
-        case LIBMEMC_BINARY:
-        case LIBMEMC_TEXTUAL:
+    case LIBMEMC_BINARY:
+    case LIBMEMC_TEXTUAL:
         {
             struct Item mitem = {
                 .key = key,
@@ -382,10 +382,10 @@ static inline void *memcached_get_wrapper(struct connection* connection,
             *size = mitem.size;
             ret = mitem.data;
         }
-            break;
+        break;
 
-        default:
-            abort();
+    default:
+        abort();
     }
 
     return ret;
@@ -429,7 +429,7 @@ static struct connection *get_connection(void) {
 #ifdef __sun
         return &connectionpool[pthread_self()];
 #else
-	/* @FIXME!!!! */
+        /* @FIXME!!!! */
         return &connectionpool[0];
 #endif
     } else {
@@ -479,7 +479,7 @@ static const char* hrtime2text(hrtime_t t, char *buffer, size_t size) {
  */
 static const char* timeval2text(struct timeval* val, char *buffer, size_t size) {
     snprintf(buffer, size, "%2ld.%06lu", (long) val->tv_sec,
-            (long) val->tv_usec);
+             (long) val->tv_usec);
 
     return buffer;
 }
@@ -547,13 +547,13 @@ static int populate_dataset(struct report *rep) {
     int end = rep->offset + rep->total;
     for (int ii = rep->offset; ii < end; ++ii) {
         if (memcached_set_wrapper(connection,
-                dataset[ii].key, dataset[ii].keylen,
-                datablock.data, dataset[ii].size) != 0) {
+                                  dataset[ii].key, dataset[ii].keylen,
+                                  datablock.data, dataset[ii].size) != 0) {
             fprintf(stderr, "Failed to set data!\n");
             release_connection(connection);
             return -1;
         }
-	globalSetCount++;
+        globalSetCount++;
         assert((verify_data) ? dataset[ii].keylen == strlen(dataset[ii].key) : 1);
     }
 
@@ -607,14 +607,14 @@ static int populate_data(int no_threads) {
                 ++offset;
             }
             pthread_create(&threads[ii], 0, populate_thread_main,
-                    &reports[ii]);
+                           &reports[ii]);
         }
 
         for (ii = 0; ii < no_threads; ++ii) {
             void *threadret;
             pthread_join(threads[ii], &threadret);
             if (threadret == NULL) {
-               ret = -1;
+                ret = -1;
             }
         }
         free(threads);
@@ -644,9 +644,9 @@ static struct item get_setval(void) {
 
         int median_keys = totalkeys;
         if (totalkeys % 2 == 1) {
-           median_keys = (totalkeys - 1) / 2;
+            median_keys = (totalkeys - 1) / 2;
         } else {
-           median_keys = totalkeys / 2;
+            median_keys = totalkeys / 2;
         }
 
         double result = box_muller(m, stddev);
@@ -655,19 +655,19 @@ static struct item get_setval(void) {
          * by 6 is a hackish way to deal with the outliers
          */
         if (result < 0) {
-           if (verbose) {
-              fprintf(stderr, "WARNING: result was %f, result set to 0\n",
-                      result);
-           }
-           result = 0;
+            if (verbose) {
+                fprintf(stderr, "WARNING: result was %f, result set to 0\n",
+                        result);
+            }
+            result = 0;
         }
 
         if (result > 12) {
-           if (verbose) {
-              fprintf(stderr, "WARNING: result was %f, set_result set to 12\n",
-                      result);
-           }
-           result = 12.0;
+            if (verbose) {
+                fprintf(stderr, "WARNING: result was %f, set_result set to 12\n",
+                        result);
+            }
+            result = 12.0;
         }
 
         /* TODO: make sure we don't go above or below the bottom */
@@ -677,10 +677,10 @@ static struct item get_setval(void) {
         ret.key = (const char*)keyarray + ((keylength + 1) * (offset));
     } else {
         /* try use the ring... */
-       int offset = random() % no_items;
-       ret.key = dataset[offset].key;
-       ret.keylen = dataset[offset].keylen;
-       ret.size = dataset[offset].size;
+        int offset = random() % no_items;
+        ret.key = dataset[offset].key;
+        ret.keylen = dataset[offset].keylen;
+        ret.size = dataset[offset].size;
     }
 
     return ret;
@@ -713,8 +713,8 @@ static int test(struct report *rep) {
             hrtime_t delta;
             hrtime_t start = gethrtime();
             memcached_set_wrapper(connection, item.key, item.keylen,
-                    datablock.data, item.size);
-	    globalSetCount++;
+                                  datablock.data, item.size);
+            globalSetCount++;
             delta = gethrtime() - start;
             if (delta < rep->bestSet) {
                 rep->bestSet = delta;
@@ -737,9 +737,9 @@ static int test(struct report *rep) {
             size_t size = 0;
             hrtime_t start = gethrtime();
             void *data = memcached_get_wrapper(connection, item.key,
-                    item.keylen, &size);
+                                               item.keylen, &size);
 
-	    globalGetCount++;
+            globalGetCount++;
             delta = gethrtime() - start;
             if (delta < rep->bestGet) {
                 rep->bestGet = delta;
@@ -755,7 +755,7 @@ static int test(struct report *rep) {
                             "Stored %ld got %ld\n",
                             item.key, (long)item.keylen, (long)size);
                 } else if (verify_data && keyarray == NULL &&
-                        memcmp(datablock.data, data, item.size) != 0) {
+                           memcmp(datablock.data, data, item.size) != 0) {
                     fprintf(stderr, "Garbled data for <%s>\n",
                             item.key);
                 }
@@ -847,33 +847,33 @@ static int get_server_rusage(const struct host *entry, struct rusage *rusage) {
     memset(rusage, 0, sizeof (*rusage));
 
     if ((sock = socket(addrinfo->ai_family,
-            addrinfo->ai_socktype,
-            addrinfo->ai_protocol)) != -1) {
+                       addrinfo->ai_socktype,
+                       addrinfo->ai_protocol)) != -1) {
         if (connect(sock, addrinfo->ai_addr, addrinfo->ai_addrlen) != -1) {
             if (send(sock, "stats\r\n", 7, 0) > 0) {
-	      if (recv(sock, buffer, sizeof (buffer), 0) > 0) {
-                char *ptr = strstr(buffer, "rusage_user");
-                if (ptr != NULL) {
-                    rusage->ru_utime.tv_sec = atoi(ptr + 12);
-                    ptr = strchr(ptr, '.');
+                if (recv(sock, buffer, sizeof (buffer), 0) > 0) {
+                    char *ptr = strstr(buffer, "rusage_user");
                     if (ptr != NULL) {
-                        rusage->ru_utime.tv_usec = atoi(ptr + 1);
+                        rusage->ru_utime.tv_sec = atoi(ptr + 12);
+                        ptr = strchr(ptr, '.');
+                        if (ptr != NULL) {
+                            rusage->ru_utime.tv_usec = atoi(ptr + 1);
+                        }
                     }
-                }
 
-                ptr = strstr(buffer, "rusage_system");
-                if (ptr != NULL) {
-                    rusage->ru_stime.tv_sec = atoi(ptr + 14);
-
-                    ptr = strchr(ptr, '.');
+                    ptr = strstr(buffer, "rusage_system");
                     if (ptr != NULL) {
-                        rusage->ru_stime.tv_usec = atoi(ptr + 1);
+                        rusage->ru_stime.tv_sec = atoi(ptr + 14);
+
+                        ptr = strchr(ptr, '.');
+                        if (ptr != NULL) {
+                            rusage->ru_stime.tv_usec = atoi(ptr + 1);
+                        }
                     }
+                    ret = 0;
+                } else {
+                    fprintf(stderr, "Failed to read data: %s\n", strerror(errno));
                 }
-                ret = 0;
-	      } else {
-		fprintf(stderr, "Failed to read data: %s\n", strerror(errno));
-	      }
             } else {
                 fprintf(stderr, "Failed to send data: %s\n", strerror(errno));
             }
@@ -956,54 +956,54 @@ int main(int argc, char **argv) {
 
     while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvy:xk:C:")) != EOF) {
         switch (cmd) {
-            case 'p':
-                progress = 1;
-                break;
-            case 'P':
-                setprc = atoi(optarg);
-                if (setprc > 100) {
-                    setprc = 100;
-                } else if (setprc < 0) {
-                    setprc = 0;
-                }
-                break;
-            case 't':
-                no_threads = atoi(optarg);
-                break;
-            case 'L':
-                current_memcached_library = atoi(optarg);
-                break;
-            case 'M':
-                size = atoi(optarg);
-                if (size > 1024 * 1024 *20) {
-                    fprintf(stderr, "WARNING: Too big block size %d\n", size);
-                } else {
-                    datablock.size = size;
-                }
-                break;
-            case 'F': use_fixed_block_size = 1;
-                break;
-            case 'h': add_host(optarg);
-                break;
-            case 'i': no_items = atoi(optarg);
-                break;
-            case 's': srand(atoi(optarg));
-                break;
-            case 'c': no_iterations = atoll(optarg);
-                break;
-            case 'V': verify_data = 1;
-                break;
-            case 'l': loop = 1;
-                break;
-            case 'S': populate = 0;
-                break;
-            case 'v': verbose = 1;
-                break;
-            case 'W': connection_pool_size = atoi(optarg);
-                break;
-            case 'Q': thread_bind_connection = 1;
-                break;
-            case 'm':
+        case 'p':
+            progress = 1;
+            break;
+        case 'P':
+            setprc = atoi(optarg);
+            if (setprc > 100) {
+                setprc = 100;
+            } else if (setprc < 0) {
+                setprc = 0;
+            }
+            break;
+        case 't':
+            no_threads = atoi(optarg);
+            break;
+        case 'L':
+            current_memcached_library = atoi(optarg);
+            break;
+        case 'M':
+            size = atoi(optarg);
+            if (size > 1024 * 1024 *20) {
+                fprintf(stderr, "WARNING: Too big block size %d\n", size);
+            } else {
+                datablock.size = size;
+            }
+            break;
+        case 'F': use_fixed_block_size = 1;
+            break;
+        case 'h': add_host(optarg);
+            break;
+        case 'i': no_items = atoi(optarg);
+            break;
+        case 's': srand(atoi(optarg));
+            break;
+        case 'c': no_iterations = atoll(optarg);
+            break;
+        case 'V': verify_data = 1;
+            break;
+        case 'l': loop = 1;
+            break;
+        case 'S': populate = 0;
+            break;
+        case 'v': verbose = 1;
+            break;
+        case 'W': connection_pool_size = atoi(optarg);
+            break;
+        case 'Q': thread_bind_connection = 1;
+            break;
+        case 'm':
             {
                 size = atoi(optarg);
                 if (size > 1024 * 1024) {
@@ -1013,53 +1013,53 @@ int main(int argc, char **argv) {
                 }
                 break;
             }
-            case 'k':
-                if (load_keys(optarg) == -1) {
-                    return 1;
-                }
-                break;
-            case 'y':
-                stddev = atof(optarg);
-                break;
-            case 'x':
-                set_bench = 1;
-                populate = 0;
-                break;
-            case 'C':
+        case 'k':
+            if (load_keys(optarg) == -1) {
+                return 1;
+            }
+            break;
+        case 'y':
+            stddev = atof(optarg);
+            break;
+        case 'x':
+            set_bench = 1;
+            populate = 0;
+            break;
+        case 'C':
 #ifndef HAVE_LIBVBUCKET
-                fprintf(stderr, "You need to rebuild memcachetest with libvbucket\n");
-                return 1;
+            fprintf(stderr, "You need to rebuild memcachetest with libvbucket\n");
+            return 1;
 #else
-                if (!initialize_vbuckets(optarg)) {
-                    return -1;
-                }
+            if (!initialize_vbuckets(optarg)) {
+                return -1;
+            }
 #endif
-            default:
-                fprintf(stderr, "Usage: test [-h host[:port]] [-t #threads]");
-                fprintf(stderr, " [-T] [-i #items] [-c #iterations] [-v] ");
-                fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-x] [-y stddev] [-k keyfile] [-C vbucketconfig]\n");
-                fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
-                fprintf(stderr, "\t   (use mulitple -h args for multiple servers)");
-                fprintf(stderr, "\t-t The number of threads to use\n");
-                fprintf(stderr, "\t-m The minimum object size to use during testing\n");
-                fprintf(stderr, "\t-M The maximum object size to use during testing\n");
-                fprintf(stderr, "\t-F Use fixed message size\n");
-                fprintf(stderr, "\t-i The number of items to operate with\n");
-                fprintf(stderr, "\t-c The number of iteratons each thread should do\n");
-                fprintf(stderr, "\t-l Loop and repeat the test, but print out information for each run\n");
-                fprintf(stderr, "\t-V Verify the retrieved data\n");
-                fprintf(stderr, "\t-v Verbose output\n");
-                fprintf(stderr, "\t-L Use the specified memcached client library\n");
-                fprintf(stderr, "\t-W connection pool size\n");
-                fprintf(stderr, "\t-s Use the specified seed to initialize the random generator\n");
-                fprintf(stderr, "\t-S Skip the populate of the data\n");
-                fprintf(stderr, "\t-P The probability for a set operation\n");
-                fprintf(stderr, "\t-y Specify standard deviation for -x option test\n");
-                fprintf(stderr, "\t-k The file with keys to be retrieved\n");
-                fprintf(stderr, "\t-x randomly request from a set in a supplied file\n");
-                fprintf(stderr, "\t\t(implies -S, requires -k)\n");
-                fprintf(stderr, "\t-C Read vbucket data\n");
-                return 1;
+        default:
+            fprintf(stderr, "Usage: test [-h host[:port]] [-t #threads]");
+            fprintf(stderr, " [-T] [-i #items] [-c #iterations] [-v] ");
+            fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-x] [-y stddev] [-k keyfile] [-C vbucketconfig]\n");
+            fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
+            fprintf(stderr, "\t   (use mulitple -h args for multiple servers)");
+            fprintf(stderr, "\t-t The number of threads to use\n");
+            fprintf(stderr, "\t-m The minimum object size to use during testing\n");
+            fprintf(stderr, "\t-M The maximum object size to use during testing\n");
+            fprintf(stderr, "\t-F Use fixed message size\n");
+            fprintf(stderr, "\t-i The number of items to operate with\n");
+            fprintf(stderr, "\t-c The number of iteratons each thread should do\n");
+            fprintf(stderr, "\t-l Loop and repeat the test, but print out information for each run\n");
+            fprintf(stderr, "\t-V Verify the retrieved data\n");
+            fprintf(stderr, "\t-v Verbose output\n");
+            fprintf(stderr, "\t-L Use the specified memcached client library\n");
+            fprintf(stderr, "\t-W connection pool size\n");
+            fprintf(stderr, "\t-s Use the specified seed to initialize the random generator\n");
+            fprintf(stderr, "\t-S Skip the populate of the data\n");
+            fprintf(stderr, "\t-P The probability for a set operation\n");
+            fprintf(stderr, "\t-y Specify standard deviation for -x option test\n");
+            fprintf(stderr, "\t-k The file with keys to be retrieved\n");
+            fprintf(stderr, "\t-x randomly request from a set in a supplied file\n");
+            fprintf(stderr, "\t\t(implies -S, requires -k)\n");
+            fprintf(stderr, "\t-C Read vbucket data\n");
+            return 1;
         }
     }
 
@@ -1174,13 +1174,13 @@ int main(int argc, char **argv) {
                     if (temp.set > 0) {
                         fprintf(stdout, "set: %s (%ld) ",
                                 hrtime2text(temp.setDelta / temp.set,
-					    buff, sizeof (buff)), (long)temp.set);
+                                            buff, sizeof (buff)), (long)temp.set);
                     }
 
                     if (temp.get > 0) {
                         fprintf(stdout, "get: %s (%ld) ",
                                 hrtime2text(temp.getDelta / temp.get,
-					    buff, sizeof (buff)), (long)temp.get);
+                                            buff, sizeof (buff)), (long)temp.get);
                     }
                     ++shift;
                     if (shift % 10 == 0) {
@@ -1233,24 +1233,24 @@ int main(int argc, char **argv) {
                     printf("Thread: %d\n", ii);
                     if (rep->set > 0) {
                         printf("  Avg set: %s (%ld) min: %s max: %s\n",
-			       hrtime2text(rep->setDelta / rep->set,
-					   setTime, sizeof (setTime)),
-			       (long)rep->set,
-			       hrtime2text(rep->bestSet,
-					   bestSetTime, sizeof (bestSetTime)),
-			       hrtime2text(rep->worstSet,
-					   worstSetTime, sizeof (worstSetTime)));
+                               hrtime2text(rep->setDelta / rep->set,
+                                           setTime, sizeof (setTime)),
+                               (long)rep->set,
+                               hrtime2text(rep->bestSet,
+                                           bestSetTime, sizeof (bestSetTime)),
+                               hrtime2text(rep->worstSet,
+                                           worstSetTime, sizeof (worstSetTime)));
 
                     }
                     if (rep->get > 0) {
                         printf("  Avg get: %s (%ld) min: %s max: %s\n",
-			       hrtime2text(rep->getDelta / rep->get,
-					   getTime, sizeof (getTime)),
-			       (long)rep->get,
-			       hrtime2text(rep->bestGet,
-					   bestGetTime, sizeof (bestGetTime)),
-			       hrtime2text(rep->worstGet,
-					   worstGetTime, sizeof (worstGetTime)));
+                               hrtime2text(rep->getDelta / rep->get,
+                                           getTime, sizeof (getTime)),
+                               (long)rep->get,
+                               hrtime2text(rep->bestGet,
+                                           bestGetTime, sizeof (bestGetTime)),
+                               hrtime2text(rep->worstGet,
+                                           worstGetTime, sizeof (worstGetTime)));
 
                     }
                 }
@@ -1274,22 +1274,22 @@ int main(int argc, char **argv) {
         /* print out the results */
 
         /*
-        char tavg[80];
-        char tmin[80];
-        char tmax[80];
-        char tmax90[80];
-        char tmax95[80];
+          char tavg[80];
+          char tmin[80];
+          char tmax[80];
+          char tmax90[80];
+          char tmax95[80];
 
-        printf("Get operations:\n");
-        printf("     #of ops.       min       max        avg      max90th    max95th\n");
-        printf("%13ld", getResults->success_count);
-        printf("%11.11s", hrtime2text(getResults->min_result, tmin, sizeof (tmin)));
-        printf("%11.11s", hrtime2text(getResults->max_result, tmax, sizeof (tmax)));
-        printf("%11.11s", hrtime2text(getResults->average, tavg, sizeof(tavg)));
-        printf("%13.13s", hrtime2text(getResults->max90th_result, tmax90, sizeof(tmax90)));
-        printf("%12.12s", hrtime2text(getResults->max95th_result, tmax95, sizeof(tmax95)));
+          printf("Get operations:\n");
+          printf("     #of ops.       min       max        avg      max90th    max95th\n");
+          printf("%13ld", getResults->success_count);
+          printf("%11.11s", hrtime2text(getResults->min_result, tmin, sizeof (tmin)));
+          printf("%11.11s", hrtime2text(getResults->max_result, tmax, sizeof (tmax)));
+          printf("%11.11s", hrtime2text(getResults->average, tavg, sizeof(tavg)));
+          printf("%13.13s", hrtime2text(getResults->max90th_result, tmax90, sizeof(tmax90)));
+          printf("%12.12s", hrtime2text(getResults->max95th_result, tmax95, sizeof(tmax95)));
 
-        printf("\n\n");
+          printf("\n\n");
         */
 
         printf("Average with %d threads:\n", no_threads);
@@ -1302,7 +1302,7 @@ int main(int argc, char **argv) {
             hrtime2text(worstSet, worst, sizeof (worst));
 
             printf("  Avg set: %s (%ld) min: %s (%d) max: %s (%d)\n",
-		   avg, (long)set, best, bestSetTid, worst, worstSetTid);
+                   avg, (long)set, best, bestSetTid, worst, worstSetTid);
         }
         if (get > 0) {
             char avg[80];
@@ -1313,7 +1313,7 @@ int main(int argc, char **argv) {
             hrtime2text(worstGet, worst, sizeof (worst));
 
             printf("  Avg get: %s (%ld) min: %s (%d) max: %s (%d)\n",
-		   avg, (long)get, best, bestGetTid, worst, worstGetTid);
+                   avg, (long)get, best, bestGetTid, worst, worstGetTid);
         }
 
         free(reports);
@@ -1329,16 +1329,16 @@ int main(int argc, char **argv) {
 
         gettimeofday(&endtime, NULL);
         fprintf(stdout, "Usr: %s\n", timeval2text(&rusage.ru_utime,
-                buffer, sizeof (buffer)));
+                                                  buffer, sizeof (buffer)));
         fprintf(stdout, "Sys: %s\n", timeval2text(&rusage.ru_stime,
-                buffer, sizeof (buffer)));
+                                                  buffer, sizeof (buffer)));
 
         if (starttime.tv_sec != 0 && endtime.tv_sec != 0) {
             endtime.tv_sec -= starttime.tv_sec;
             endtime.tv_usec -= starttime.tv_usec;
             fprintf(stdout, "Tot: %s\n", timeval2text(&endtime,
-                    buffer,
-                    sizeof (buffer)));
+                                                      buffer,
+                                                      sizeof (buffer)));
         }
 
         if (get_server_rusage(hosts, &rusage) != -1) {
@@ -1349,13 +1349,13 @@ int main(int argc, char **argv) {
 
             fprintf(stdout, "Server time:\n");
             fprintf(stdout, "Usr: %s\n", timeval2text(&rusage.ru_utime,
-                    buffer, sizeof (buffer)));
+                                                      buffer, sizeof (buffer)));
             fprintf(stdout, "Sys: %s\n", timeval2text(&rusage.ru_stime,
-                    buffer, sizeof (buffer)));
+                                                      buffer, sizeof (buffer)));
         }
     }
 
- fprintf(stdout,"Total gets: %lld\n",globalGetCount);
+    fprintf(stdout,"Total gets: %lld\n",globalGetCount);
     fprintf(stdout,"Total sets: %lld\n",globalSetCount);
     destroy_connection_pool();
 
