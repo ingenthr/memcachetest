@@ -88,30 +88,10 @@ struct report {
 };
 
 /**
- * Each item represented in the cache
- */
-struct item {
-    /**
-     * The item's key
-     */
-    const char *key;
-    /**
-     * The length of the key to avoid calling strlen all the time
-     */
-    size_t keylen;
-    /**
-     * The size of the data stored in the cache (all data stored in memcached
-     * will start from datablock.data)
-     */
-    size_t size;
-};
-
-/**
  * The set of data to operate on
  */
-struct item *dataset;
+size_t *dataset;
 
-static long totalkeys;
 static long long globalSetCount=0;
 static long long globalGetCount=0;
 /**
@@ -500,31 +480,23 @@ static int initialize_dataset(void) {
         free(dataset);
     }
 
-    dataset = calloc(no_items, sizeof (struct item));
+    dataset = calloc(no_items, sizeof(size_t));
     if (dataset == NULL) {
         fprintf(stderr, "Failed to allocate memory for the dataset\n");
         return -1;
     }
 
     for (long ii = 0; ii < no_items; ++ii) {
-        char buffer[128];
-        sprintf(buffer, "%08ld", ii);
-
-        dataset[ii].key = strdup(buffer);
-        dataset[ii].keylen = strlen(buffer);
         if (use_fixed_block_size) {
-            dataset[ii].size = datablock.size;
-            total += dataset[ii].size;
+            dataset[ii] = datablock.size;
         } else {
-            dataset[ii].size = datablock.min_size
-                + (random() % (datablock.size - datablock.min_size));
-            if (dataset[ii].size == 0) {
-                dataset[ii].size = 1024;
-            }
-            assert(dataset[ii].size >= datablock.min_size);
-            assert(dataset[ii].size <= datablock.size);
-            total += dataset[ii].size;
+            dataset[ii] = datablock.min_size +
+                (random() % (datablock.size - datablock.min_size));
+            assert(dataset[ii] >= datablock.min_size);
+            assert(dataset[ii] <= datablock.size);
         }
+
+        total += dataset[ii];
     }
 
     datablock.avg = (size_t) (total / no_items);
@@ -538,16 +510,18 @@ static int initialize_dataset(void) {
 static int populate_dataset(struct report *rep) {
     struct connection* connection = get_connection();
     int end = rep->offset + rep->total;
+    char key[12];
+    size_t nkey;
+
     for (int ii = rep->offset; ii < end; ++ii) {
-        if (memcached_set_wrapper(connection,
-                                  dataset[ii].key, dataset[ii].keylen,
-                                  datablock.data, dataset[ii].size) != 0) {
+        nkey = snprintf(key, sizeof(key), "%d", ii);
+        if (memcached_set_wrapper(connection, key, nkey,
+                                  datablock.data, dataset[ii]) != 0) {
             fprintf(stderr, "Failed to set data!\n");
             release_connection(connection);
             return -1;
         }
         globalSetCount++;
-        assert((verify_data) ? dataset[ii].keylen == strlen(dataset[ii].key) : 1);
     }
 
     release_connection(connection);
@@ -623,15 +597,8 @@ static int populate_data(int no_threads) {
 }
 
 
-static struct item get_setval(void) {
-    struct item ret = { .key = NULL, .keylen = 0, .size = 0 };
-
-    int offset = random() % no_items;
-    ret.key = dataset[offset].key;
-    ret.keylen = dataset[offset].keylen;
-    ret.size = dataset[offset].size;
-
-    return ret;
+static int get_setval(void) {
+    return random() % no_items;
 }
 
 /**
@@ -645,16 +612,19 @@ static int test(struct report *rep) {
     rep->bestGet = rep->bestSet = 99999999;
     rep->worstGet = rep->worstSet = 0;
 
+    char key[12];
+    size_t nkey;
+
     for (size_t ii = 0; ii < rep->total; ++ii) {
         connection = get_connection();
+        int idx = get_setval();
+        nkey = snprintf(key, sizeof(key), "%d", idx);
 
-        struct item item = get_setval();
-
-        if (setprc > 0 && (random() % 100) < setprc) { // @todo fixme!!! (we don't do set right now...)
+        if (setprc > 0 && (random() % 100) < setprc) {
             hrtime_t delta;
             hrtime_t start = gethrtime();
-            memcached_set_wrapper(connection, item.key, item.keylen,
-                                  datablock.data, item.size);
+            memcached_set_wrapper(connection, key, nkey,
+                                  datablock.data, dataset[idx]);
             globalSetCount++;
             delta = gethrtime() - start;
             if (delta < rep->bestSet) {
@@ -669,16 +639,12 @@ static int test(struct report *rep) {
         } else {
             /* go set it from random data */
             if (verbose) {
-                char buffer[260] = {0};
-                snprintf(buffer, item.keylen+1, "%s", item.key);
-                fprintf(stderr, "CMD: get %s\n", buffer);
-                fflush(stderr);
+                fprintf(stderr, "CMD: get %s\n", key);
             }
             hrtime_t delta;
             size_t size = 0;
             hrtime_t start = gethrtime();
-            void *data = memcached_get_wrapper(connection, item.key,
-                                               item.keylen, &size);
+            void *data = memcached_get_wrapper(connection, key, nkey, &size);
 
             globalGetCount++;
             delta = gethrtime() - start;
@@ -690,24 +656,19 @@ static int test(struct report *rep) {
             }
             rep->getDelta += delta;
             if (data != NULL) {
-                if (size != item.size) {
+                if (size != dataset[idx]) {
                     fprintf(stderr,
                             "Incorrect length returned for <%s>. "
                             "Stored %ld got %ld\n",
-                            item.key, (long)item.keylen, (long)size);
+                            key, dataset[idx], (long)size);
                 } else if (verify_data &&
-                           memcmp(datablock.data, data, item.size) != 0) {
-                    fprintf(stderr, "Garbled data for <%s>\n",
-                            item.key);
+                           memcmp(datablock.data, data, size) != 0) {
+                    fprintf(stderr, "Garbled data for <%s>\n", key);
                 }
                 // record_tx(TX_GET, delta);
                 free(data);
             } else {
-                fprintf(stderr, "missing data for <");
-                for (size_t jj = 0; jj < item.keylen; ++jj) {
-                    fprintf(stderr, "%c", item.key[jj]);
-                }
-                fprintf(stderr, ">\n");
+                fprintf(stderr, "missing data for <%s>\n", key);
                 // record_error(TX_GET, delta);
             }
             ++rep->get;
