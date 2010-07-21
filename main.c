@@ -454,7 +454,7 @@ static void release_connection(struct connection *connection) {
  * @return buffer
  */
 static const char* hrtime2text(hrtime_t t, char *buffer, size_t size) {
-    const char * const extensions[] = {"ns", "us", "ms", "s" }; //TODO: get a greek Mu in here correctly
+    static const char * const extensions[] = {"ns", "us", "ms", "s" }; //TODO: get a greek Mu in here correctly
     int id = 0;
 
     while (t > 9999) {
