@@ -38,7 +38,7 @@ AH_BOTTOM(
 #ifndef HAVE_GETHRTIME
 #include <stdint.h>
 typedef uint64_t hrtime_t;
-extern hrtime_t gethrtime();
+extern hrtime_t gethrtime(void);
 #endif
 #endif
 )
