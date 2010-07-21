@@ -27,14 +27,10 @@ AC_SEARCH_LIBS(sqrt, m)
 AC_SEARCH_LIBS(pthread_create, pthread)
 AC_SEARCH_LIBS(clock_gettime, rt)
 
-AC_CHECK_HEADERS_ONCE(sys/mman.h memcached/protocol_binary.h)
-AC_CHECK_FUNCS_ONCE(mmap posix_madvise gethrtime clock_gettime gettimeofday)
+AC_CHECK_HEADERS_ONCE(memcached/protocol_binary.h)
+AC_CHECK_FUNCS_ONCE(gethrtime clock_gettime gettimeofday)
 
 AH_BOTTOM(
-#ifdef HAVE_SYS_MMAN_H
-#include <sys/mman.h>
-#endif
-
 #ifndef HAVE_GETHRTIME
 #include <stdint.h>
 typedef uint64_t hrtime_t;

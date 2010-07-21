@@ -111,8 +111,6 @@ struct item {
  */
 struct item *dataset;
 
-static void *keyarray;
-static int keylength;
 static long totalkeys;
 static long long globalSetCount=0;
 static long long globalGetCount=0;
@@ -159,11 +157,6 @@ int verify_data = 0;
 /** The probaility for a set operation */
 int setprc = 33;
 
-/** what kind of benchmark are we running
-    TODO: this shouldn't be a global, or if so shouldn't be done this way */
-int set_bench = 0; /* whether or not this is a simple dataset bench */
-
-double stddev = 0;
 int verbose = 0;
 
 /** TODO: get rid of these after testing */
@@ -633,55 +626,10 @@ static int populate_data(int no_threads) {
 static struct item get_setval(void) {
     struct item ret = { .key = NULL, .keylen = 0, .size = 0 };
 
-    if (keyarray != 0) {
-        // Use keys loaded from disk..
-        ret.keylen = keylength;
-        ret.size = 1024; // add random value;
-
-        /* test the box_muller */
-        double m = 6.0; /* this is the mean; stddev set via option -y */
-        assert(totalkeys > 0);
-
-        int median_keys = totalkeys;
-        if (totalkeys % 2 == 1) {
-            median_keys = (totalkeys - 1) / 2;
-        } else {
-            median_keys = totalkeys / 2;
-        }
-
-        double result = box_muller(m, stddev);
-
-        /* the following and setting the mean around 6 and later dividing
-         * by 6 is a hackish way to deal with the outliers
-         */
-        if (result < 0) {
-            if (verbose) {
-                fprintf(stderr, "WARNING: result was %f, result set to 0\n",
-                        result);
-            }
-            result = 0;
-        }
-
-        if (result > 12) {
-            if (verbose) {
-                fprintf(stderr, "WARNING: result was %f, set_result set to 12\n",
-                        result);
-            }
-            result = 12.0;
-        }
-
-        /* TODO: make sure we don't go above or below the bottom */
-        unsigned int offset = (int)(median_keys * result/6);
-        offset %= totalkeys;
-
-        ret.key = (const char*)keyarray + ((keylength + 1) * (offset));
-    } else {
-        /* try use the ring... */
-        int offset = random() % no_items;
-        ret.key = dataset[offset].key;
-        ret.keylen = dataset[offset].keylen;
-        ret.size = dataset[offset].size;
-    }
+    int offset = random() % no_items;
+    ret.key = dataset[offset].key;
+    ret.keylen = dataset[offset].keylen;
+    ret.size = dataset[offset].size;
 
     return ret;
 }
@@ -702,14 +650,7 @@ static int test(struct report *rep) {
 
         struct item item = get_setval();
 
-        // Ensure that the item is paged in..
-        for (size_t jj = 0; jj < item.keylen; ++jj) {
-            if (item.key[jj] == '\0' || item.key[jj] == '\n') {
-                abort();
-            }
-        }
-
-        if (keyarray == NULL && setprc > 0 && (random() % 100) < setprc) { // @todo fixme!!! (we don't do set right now...)
+        if (setprc > 0 && (random() % 100) < setprc) { // @todo fixme!!! (we don't do set right now...)
             hrtime_t delta;
             hrtime_t start = gethrtime();
             memcached_set_wrapper(connection, item.key, item.keylen,
@@ -749,12 +690,12 @@ static int test(struct report *rep) {
             }
             rep->getDelta += delta;
             if (data != NULL) {
-                if (size != item.size && keyarray == NULL) {
+                if (size != item.size) {
                     fprintf(stderr,
                             "Incorrect length returned for <%s>. "
                             "Stored %ld got %ld\n",
                             item.key, (long)item.keylen, (long)size);
-                } else if (verify_data && keyarray == NULL &&
+                } else if (verify_data &&
                            memcmp(datablock.data, data, item.size) != 0) {
                     fprintf(stderr, "Garbled data for <%s>\n",
                             item.key);
@@ -890,53 +831,6 @@ static int get_server_rusage(const struct host *entry, struct rusage *rusage) {
     return ret;
 }
 
-static int load_keys(const char *fname) {
-    struct stat st;
-    if (stat(fname, &st) == -1) {
-        perror("Failed to stat(3c) keyfile");
-        return -1;
-    }
-    FILE *fp = fopen(fname, "r");
-    if (fp == NULL) {
-        perror("Failed to open keyfile");
-        return -1;
-    }
-#ifdef HAVE_MMAP
-    keyarray = mmap((caddr_t) 0, st.st_size, PROT_READ, MAP_PRIVATE, fileno(fp), 0);
-    if (keyarray == NULL) {
-        perror("Failed to memorymap key file");
-        fclose(fp);
-        return -1;
-    }
-#ifdef HAVE_POSIX_MADVISE
-    (void) posix_madvise(keyarray, st.st_size, POSIX_MADV_RANDOM);
-#endif
-
-#else
-    keyarray = malloc(st.st_size);
-    size_t offset = 0;
-    ssize_t nr;
-    do {
-        nr = read(fileno(fp), keyarray + offset, st.st_size - offset);
-        if (nr > 0) {
-            offset += nr;
-        }
-    } while (offset < st.st_size);
-#endif
-
-    char *ptr = keyarray;
-    keylength = 0;
-    while (*ptr != '\0' && *ptr != '\n') {
-        ++ptr;
-        ++keylength;
-        if (ptr == ((const char*)keyarray + st.st_size)) {
-            break;
-        }
-    }
-    totalkeys = st.st_size / (keylength + 1);
-    return 0;
-}
-
 /**
  * Program entry point
  * @param argc argument count
@@ -954,7 +848,7 @@ int main(int argc, char **argv) {
     int size;
     gettimeofday(&starttime, NULL);
 
-    while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvy:xk:C:")) != EOF) {
+    while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvy:C:")) != EOF) {
         switch (cmd) {
         case 'p':
             progress = 1;
@@ -1011,19 +905,7 @@ int main(int argc, char **argv) {
                 } else {
                     datablock.min_size = size;
                 }
-                break;
             }
-        case 'k':
-            if (load_keys(optarg) == -1) {
-                return 1;
-            }
-            break;
-        case 'y':
-            stddev = atof(optarg);
-            break;
-        case 'x':
-            set_bench = 1;
-            populate = 0;
             break;
         case 'C':
 #ifndef HAVE_LIBVBUCKET
@@ -1037,7 +919,7 @@ int main(int argc, char **argv) {
         default:
             fprintf(stderr, "Usage: test [-h host[:port]] [-t #threads]");
             fprintf(stderr, " [-T] [-i #items] [-c #iterations] [-v] ");
-            fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-x] [-y stddev] [-k keyfile] [-C vbucketconfig]\n");
+            fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-C vbucketconfig]\n");
             fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
             fprintf(stderr, "\t   (use mulitple -h args for multiple servers)");
             fprintf(stderr, "\t-t The number of threads to use\n");
@@ -1056,16 +938,9 @@ int main(int argc, char **argv) {
             fprintf(stderr, "\t-P The probability for a set operation\n");
             fprintf(stderr, "\t-y Specify standard deviation for -x option test\n");
             fprintf(stderr, "\t-k The file with keys to be retrieved\n");
-            fprintf(stderr, "\t-x randomly request from a set in a supplied file\n");
-            fprintf(stderr, "\t\t(implies -S, requires -k)\n");
             fprintf(stderr, "\t-C Read vbucket data\n");
             return 1;
         }
-    }
-
-    if (set_bench == 1 && keyarray==NULL) {
-        fprintf(stderr,"-x option requires keyfile (-k)\n");
-        exit(-1);
     }
 
     if (connection_pool_size < (size_t)no_threads) {
@@ -1100,16 +975,12 @@ int main(int argc, char **argv) {
         add_host("localhost");
     }
 
-    if (keyarray == NULL && initialize_dataset() == -1 && !set_bench) {
+    if (initialize_dataset() == -1) {
         return 1;
     }
 
     if (create_connection_pool() == -1) {
         return 1;
-    }
-
-    if (keyarray != NULL) {
-        populate = 0;
     }
 
     if (populate && populate_data(no_threads) == -1) {
