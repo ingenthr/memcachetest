@@ -92,8 +92,6 @@ struct report {
  */
 size_t *dataset;
 
-static long long globalSetCount=0;
-static long long globalGetCount=0;
 /**
  * The datablock to operate with
  */
@@ -521,7 +519,6 @@ static int populate_dataset(struct report *rep) {
             release_connection(connection);
             return -1;
         }
-        globalSetCount++;
     }
 
     release_connection(connection);
@@ -625,7 +622,6 @@ static int test(struct report *rep) {
             hrtime_t start = gethrtime();
             memcached_set_wrapper(connection, key, nkey,
                                   datablock.data, dataset[idx]);
-            globalSetCount++;
             delta = gethrtime() - start;
             if (delta < rep->bestSet) {
                 rep->bestSet = delta;
@@ -646,7 +642,6 @@ static int test(struct report *rep) {
             hrtime_t start = gethrtime();
             void *data = memcached_get_wrapper(connection, key, nkey, &size);
 
-            globalGetCount++;
             delta = gethrtime() - start;
             if (delta < rep->bestGet) {
                 rep->bestGet = delta;
@@ -952,6 +947,9 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to get server stats\n");
     }
 
+
+    size_t nget = 0;
+    size_t nset = populate ? no_items : 0;
     do {
         pthread_t *threads = calloc(sizeof (pthread_t), no_threads);
         struct report *reports = calloc(sizeof (struct report), no_threads);
@@ -1124,6 +1122,9 @@ int main(int argc, char **argv) {
           printf("\n\n");
         */
 
+        nget += get;
+        nset += set;
+
         printf("Average with %d threads:\n", no_threads);
         if (set > 0) {
             char avg[80];
@@ -1187,8 +1188,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    fprintf(stdout,"Total gets: %lld\n",globalGetCount);
-    fprintf(stdout,"Total sets: %lld\n",globalSetCount);
+    fprintf(stdout,"Total gets: %zu\n", nget);
+    fprintf(stdout,"Total sets: %zu\n", nset);
     destroy_connection_pool();
 
     return 0;
