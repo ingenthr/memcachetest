@@ -811,7 +811,7 @@ int main(int argc, char **argv) {
     int size;
     gettimeofday(&starttime, NULL);
 
-    while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvy:C:")) != EOF) {
+    while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvC:")) != EOF) {
         switch (cmd) {
         case 'p':
             progress = 1;
@@ -882,17 +882,17 @@ int main(int argc, char **argv) {
             break;
         default:
             fprintf(stderr, "Usage: test [-h host[:port]] [-t #threads]");
-            fprintf(stderr, " [-T] [-i #items] [-c #iterations] [-v] ");
-            fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-C vbucketconfig]\n");
+            fprintf(stderr, " [-T] [-i #items] [-c #iterations]\n");
+            fprintf(stderr, "            [-v] [-V] [-f dir] [-s seed] [-W size] [-C vbucketconfig]\n");
             fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
-            fprintf(stderr, "\t   (use mulitple -h args for multiple servers)");
+            fprintf(stderr, "\t   (use mulitple -h args for multiple servers)\n");
             fprintf(stderr, "\t-t The number of threads to use\n");
-            fprintf(stderr, "\t-m The minimum object size to use during testing\n");
-            fprintf(stderr, "\t-M The maximum object size to use during testing\n");
-            fprintf(stderr, "\t-F Use fixed message size\n");
             fprintf(stderr, "\t-i The number of items to operate with\n");
             fprintf(stderr, "\t-c The number of iteratons each thread should do\n");
             fprintf(stderr, "\t-l Loop and repeat the test, but print out information for each run\n");
+            fprintf(stderr, "\t-m The minimum object size to use during testing\n");
+            fprintf(stderr, "\t-M The maximum object size to use during testing\n");
+            fprintf(stderr, "\t-F Use fixed message size, specified by -M\n");
             fprintf(stderr, "\t-V Verify the retrieved data\n");
             fprintf(stderr, "\t-v Verbose output\n");
             fprintf(stderr, "\t-L Use the specified memcached client library\n");
@@ -900,9 +900,9 @@ int main(int argc, char **argv) {
             fprintf(stderr, "\t-s Use the specified seed to initialize the random generator\n");
             fprintf(stderr, "\t-S Skip the populate of the data\n");
             fprintf(stderr, "\t-P The probability for a set operation\n");
-            fprintf(stderr, "\t-y Specify standard deviation for -x option test\n");
-            fprintf(stderr, "\t-k The file with keys to be retrieved\n");
-            fprintf(stderr, "\t-C Read vbucket data\n");
+            fprintf(stderr, "\t   (default: 33 meaning set 33%% of the time)\n");
+            fprintf(stderr, "\t-C Read vbucket data from host:port specified\n");
+            fprintf(stderr, "\nVersion: %s\n\n", VERSION);
             return 1;
         }
     }
