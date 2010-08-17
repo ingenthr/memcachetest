@@ -872,6 +872,7 @@ int main(int argc, char **argv) {
                 return -1;
             }
 #endif
+            break;
         default:
             fprintf(stderr, "Usage: test [-h host[:port]] [-t #threads]");
             fprintf(stderr, " [-T] [-i #items] [-c #iterations] [-v] ");
