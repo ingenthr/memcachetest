@@ -1034,12 +1034,13 @@ int main(int argc, char **argv) {
                     return -1;
                 }
 #endif
+                break;
             default:
                 fprintf(stderr, "Usage: test [-h host[:port]] [-t #threads]");
                 fprintf(stderr, " [-T] [-i #items] [-c #iterations] [-v] ");
                 fprintf(stderr, "[-V] [-f dir] [-s seed] [-W size] [-x] [-y stddev] [-k keyfile] [-C vbucketconfig]\n");
                 fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
-                fprintf(stderr, "\t   (use mulitple -h args for multiple servers)");
+                fprintf(stderr, "\t   (use mulitple -h args for multiple servers)\n");
                 fprintf(stderr, "\t-t The number of threads to use\n");
                 fprintf(stderr, "\t-m The minimum object size to use during testing\n");
                 fprintf(stderr, "\t-M The maximum object size to use during testing\n");
