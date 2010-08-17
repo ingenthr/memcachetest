@@ -732,58 +732,65 @@ static struct addrinfo *lookuphost(const char *hostname, in_port_t port) {
 }
 
 static int get_server_rusage(const struct host *entry, struct rusage *rusage) {
-    int sock;
     int ret = -1;
-    char buffer[8192];
-
-    struct addrinfo* addrinfo = lookuphost(entry->hostname, entry->port);
-    if (addrinfo == NULL) {
-        return -1;
-    }
-
-    memset(rusage, 0, sizeof (*rusage));
-
-    if ((sock = socket(addrinfo->ai_family,
-                       addrinfo->ai_socktype,
-                       addrinfo->ai_protocol)) != -1) {
-        if (connect(sock, addrinfo->ai_addr, addrinfo->ai_addrlen) != -1) {
-            if (send(sock, "stats\r\n", 7, 0) > 0) {
-                if (recv(sock, buffer, sizeof (buffer), 0) > 0) {
-                    char *ptr = strstr(buffer, "rusage_user");
-                    if (ptr != NULL) {
-                        rusage->ru_utime.tv_sec = atoi(ptr + 12);
-                        ptr = strchr(ptr, '.');
-                        if (ptr != NULL) {
-                            rusage->ru_utime.tv_usec = atoi(ptr + 1);
-                        }
-                    }
-
-                    ptr = strstr(buffer, "rusage_system");
-                    if (ptr != NULL) {
-                        rusage->ru_stime.tv_sec = atoi(ptr + 14);
-
-                        ptr = strchr(ptr, '.');
-                        if (ptr != NULL) {
-                            rusage->ru_stime.tv_usec = atoi(ptr + 1);
-                        }
-                    }
-                    ret = 0;
-                } else {
-                    fprintf(stderr, "Failed to read data: %s\n", strerror(errno));
-                }
-            } else {
-                fprintf(stderr, "Failed to send data: %s\n", strerror(errno));
+    switch (current_memcached_library) {
+    case LIBMEMC_TEXTUAL:
+        {
+            int sock;
+            char buffer[8192];
+            struct addrinfo* addrinfo = lookuphost(entry->hostname, entry->port);
+            if (addrinfo == NULL) {
+                return -1;
             }
-        } else {
-            fprintf(stderr, "Failed to connect socket: %s\n", strerror(errno));
+
+            memset(rusage, 0, sizeof (*rusage));
+
+            if ((sock = socket(addrinfo->ai_family,
+                               addrinfo->ai_socktype,
+                               addrinfo->ai_protocol)) != -1) {
+                if (connect(sock, addrinfo->ai_addr, addrinfo->ai_addrlen) != -1) {
+                    if (send(sock, "stats\r\n", 7, 0) > 0) {
+                        if (recv(sock, buffer, sizeof (buffer), 0) > 0) {
+                            char *ptr = strstr(buffer, "rusage_user");
+                            if (ptr != NULL) {
+                                rusage->ru_utime.tv_sec = atoi(ptr + 12);
+                                ptr = strchr(ptr, '.');
+                                if (ptr != NULL) {
+                                    rusage->ru_utime.tv_usec = atoi(ptr + 1);
+                                }
+                            }
+
+                            ptr = strstr(buffer, "rusage_system");
+                            if (ptr != NULL) {
+                                rusage->ru_stime.tv_sec = atoi(ptr + 14);
+
+                                ptr = strchr(ptr, '.');
+                                if (ptr != NULL) {
+                                    rusage->ru_stime.tv_usec = atoi(ptr + 1);
+                                }
+                            }
+                            ret = 0;
+                        } else {
+                            fprintf(stderr, "Failed to read data: %s\n", strerror(errno));
+                        }
+                    } else {
+                        fprintf(stderr, "Failed to send data: %s\n", strerror(errno));
+                    }
+                } else {
+                    fprintf(stderr, "Failed to connect socket: %s\n", strerror(errno));
+                }
+
+                close(sock);
+            } else {
+                fprintf(stderr, "Failed to create socket: %s\n", strerror(errno));
+            }
+
+            freeaddrinfo(addrinfo);
         }
-
-        close(sock);
-    } else {
-        fprintf(stderr, "Failed to create socket: %s\n", strerror(errno));
+        break;
+    default:
+        break;
     }
-
-    freeaddrinfo(addrinfo);
     return ret;
 }
 
