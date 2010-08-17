@@ -433,7 +433,7 @@ static int binary_get(struct Server* server, struct Item* item)
             .opcode = PROTOCOL_BINARY_CMD_GET,
             .keylen = htons(keylen),
             .datatype = PROTOCOL_BINARY_RAW_BYTES,
-            .vbucket = get_vbucket(item->key, keylen),
+            .vbucket = htons(get_vbucket(item->key, keylen)),
             .bodylen = htonl(bodylen),
             .opaque = 0
         }
@@ -548,7 +548,7 @@ static int binary_store(struct Server* server,
             .keylen = htons(keylen),
             .extlen = 8,
             .datatype = 0,
-            .vbucket = get_vbucket(item->key, keylen),
+            .vbucket = htons(get_vbucket(item->key, keylen)),
             .bodylen = htonl(keylen + item->size + 8),
             .opaque = 0,
             .cas = swap64(item->cas_id)
