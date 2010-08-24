@@ -27,24 +27,20 @@
 #include <sys/time.h>
 #include <stdint.h>
 #include "config.h"
-#include "memcachetest.h"
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-enum TxnType { TX_GET, TX_SET, TX_ADD, TX_REPLACE, TX_APPEND, TX_PREPEND, TX_CAS };
+enum TxnType { TX_GET, TX_SET, TX_ADD, TX_REPLACE,
+               TX_APPEND, TX_PREPEND, TX_CAS };
 
+struct thread_context;
 void record_tx(enum TxnType, hrtime_t, struct thread_context *);
-void record_error(enum TxnType, hrtime_t);
-struct ResultMetrics *calc_metrics(enum TxnType tx_type);
-
-struct TxnResult {
-    hrtime_t respTime;
-    struct TxnResult * next;
-    struct TxnResult* left;
-    struct TxnResult* right;
-};
+struct ResultMetrics *calc_metrics(enum TxnType tx_type,
+                                   struct thread_context *);
+void print_metrics(struct thread_context *);
+void print_aggregated_metrics(struct thread_context *, int);
 
 struct ResultMetrics {
     hrtime_t max_result;

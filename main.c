@@ -47,6 +47,7 @@
 
 #include "libmemc.h"
 #include "metrics.h"
+#include "memcachetest.h"
 #include "boxmuller.h"
 #include "vbucket.h"
 
@@ -392,30 +393,6 @@ static void release_connection(struct connection *connection) {
 }
 
 /**
- * Convert a time (in ns) to a human readable form...
- * @param time the time in nanoseconds
- * @param buffer where to store the result
- * @param size the size of the buffer
- * @return buffer
- */
-static const char* hrtime2text(hrtime_t t, char *buffer, size_t size) {
-    static const char * const extensions[] = {"ns", "us", "ms", "s" }; //TODO: get a greek Mu in here correctly
-    int id = 0;
-
-    while (t > 9999) {
-        ++id;
-        t /= 1000;
-        if (id > 3) {
-            break;
-        }
-    }
-
-    snprintf(buffer, size, "%d %s", (int) t, extensions[id]);
-    buffer[size - 1] = '\0';
-    return buffer;
-}
-
-/**
  * Convert a timeval structure to human readable form..
  * @param val the value to convert
  * @param buffer where to store the result
@@ -480,17 +457,16 @@ static int initialize_dataset(void) {
  * @return 0 if success, -1 if an error occurs
  */
 static int populate_dataset(struct thread_context *ctx) {
-    struct report *rep = &ctx->thr_summary;
     struct connection* connection = get_connection();
-    int end = rep->offset + rep->total;
+    int end = ctx->offset + ctx->total;
     char key[12];
     size_t nkey;
 
-    assert(end > rep->offset);
+    assert(end > ctx->offset);
     if (verbose) {
-        fprintf(stderr, "Populating from %d to %d\n", rep->offset, end);
+        fprintf(stderr, "Populating from %d to %d\n", ctx->offset, end);
     }
-    for (int ii = rep->offset; ii < end; ++ii) {
+    for (int ii = ctx->offset; ii < end; ++ii) {
         nkey = snprintf(key, sizeof(key), "%d", ii);
         if (memcached_set_wrapper(connection,
                                   key,
@@ -545,16 +521,18 @@ static int populate_data(int no_threads) {
 
         for (ii = 0; ii < no_threads; ++ii) {
             struct thread_context *ctxi = &ctx[ii];
-            ctxi->thr_summary.offset = offset;
-            ctxi->thr_summary.total = perThread;
+            if (!initialize_thread_ctx(ctxi, offset,
+                                       (rest > 0) ? perThread + 1 : perThread)) {
+                abort();
+            }
             offset += perThread;
             if (rest > 0) {
                 --rest;
-                ++ctxi->thr_summary.total;
                 ++offset;
             }
+
             pthread_create(&threads[ii], 0, populate_thread_main,
-                    &ctx[ii]);
+                           &ctx[ii]);
         }
 
         for (ii = 0; ii < no_threads; ++ii) {
@@ -567,7 +545,7 @@ static int populate_data(int no_threads) {
         free(threads);
         free(ctx);
     } else { /* only one thread */
-        struct thread_context ctx = {.thr_summary.offset=0, .thr_summary.total=no_items};
+        struct thread_context ctx = {.offset=0, .total=no_items};
 
         if (populate_dataset(&ctx) == -1) {
             return 1;
@@ -590,11 +568,9 @@ static int get_setval(void) {
 static int test(struct thread_context *ctx) {
     int ret = 0;
     struct connection* connection;
-    ctx->thr_summary.bestGet = ctx->thr_summary.worstGet = 99999999;
-    ctx->thr_summary.worstGet = ctx->thr_summary.worstSet = 0;
     char key[12];
     size_t nkey;
-    for (int ii = 0; ii < ctx->thr_summary.total; ++ii) {
+    for (int ii = 0; ii < ctx->total; ++ii) {
         connection = get_connection();
         int idx = get_setval();
         nkey = snprintf(key, sizeof(key), "%d", idx);
@@ -605,15 +581,7 @@ static int test(struct thread_context *ctx) {
             memcached_set_wrapper(connection, key, nkey,
                                   datablock.data, dataset[idx]);
             delta = gethrtime() - start;
-            if (delta < ctx->thr_summary.bestSet) {
-                ctx->thr_summary.bestSet = delta;
-            }
-            if (delta > ctx->thr_summary.worstSet) {
-                ctx->thr_summary.worstSet = delta;
-            }
-            ctx->thr_summary.setDelta += delta;
-            // record_tx(TX_SET, delta);  Need to add sets!
-            ++ctx->thr_summary.set;
+            record_tx(TX_SET, delta, ctx);
         } else {
             /* go set it from random data */
             if (verbose) {
@@ -625,13 +593,6 @@ static int test(struct thread_context *ctx) {
             void *data = memcached_get_wrapper(connection, key, nkey, &size);
 
             delta = gethrtime() - start;
-            if (delta < ctx->thr_summary.bestGet) {
-                ctx->thr_summary.bestGet = delta;
-            }
-            if (delta > ctx->thr_summary.worstGet) {
-                ctx->thr_summary.worstGet = delta;
-            }
-            ctx->thr_summary.getDelta += delta;
             if (data != NULL) {
                 if (size != dataset[idx]) {
                     fprintf(stderr,
@@ -648,7 +609,6 @@ static int test(struct thread_context *ctx) {
                 fprintf(stderr, "missing data for <%s>\n", key);
                 // record_error(TX_GET, delta);
             }
-            ++ctx->thr_summary.get;
         }
         release_connection(connection);
     }
@@ -943,215 +903,40 @@ int main(int argc, char **argv) {
     do {
         pthread_t *threads = calloc(sizeof (pthread_t), no_threads);
         struct thread_context *ctx = calloc(sizeof (struct thread_context), no_threads);
-        struct report *reports = calloc(sizeof (struct report), no_threads);
         int ii;
-        size_t set = 0;
-        size_t get = 0;
-        hrtime_t setDelta = 0;
-        hrtime_t getDelta = 0;
-        hrtime_t bestSet = MAXINT;
-        hrtime_t bestGet = MAXINT;
-        hrtime_t worstSet = 0;
-        hrtime_t worstGet = 0;
-        int bestGetTid = 0;
-        int worstGetTid = 0;
-        int bestSetTid = 0;
-        int worstSetTid = 0;
 
-
-        if (no_threads > 1 && no_iterations > 0) {
+        if (no_iterations > 0) {
             int perThread = no_iterations / no_threads;
             int rest = no_iterations % no_threads;
-            int current = 0;
-            int shift = 0;
 
             for (ii = 0; ii < no_threads; ++ii) {
                 struct thread_context *ctxi = &ctx[ii];
-                ctxi->thr_summary.total = perThread;
-                ctxi->head = NULL;
+                if (!initialize_thread_ctx(ctxi, 0,
+                                           (rest > 0) ? perThread + 1 : perThread)) {
+                    abort();
+                }
+
                 if (rest > 0) {
                     --rest;
-                    ++ctxi->thr_summary.total;
                 }
                 pthread_create(&threads[ii], 0, test_thread_main, &ctx[ii]);
             }
 
-
-            while (current < no_iterations) {
-                struct report temp = { .offset = 0 };
-                char buff[40];
-                sleep(5);
-                /* print average */
-
-
-                for (ii = 0; ii < no_threads; ++ii) {
-                    struct thread_context *ctxi = &ctx[ii];
-
-                    temp.set += ctxi->thr_summary.set;
-                    temp.get += ctxi->thr_summary.get;
-                    temp.setDelta += ctxi->thr_summary.setDelta;
-                    temp.getDelta += ctxi->thr_summary.getDelta;
-                }
-
-                if (progress) {
-                    fprintf(stdout, "\rAvg: ");
-                    if (temp.set > 0) {
-                        fprintf(stdout, "set: %s (%ld) ",
-                                hrtime2text(temp.setDelta / temp.set,
-                                            buff, sizeof (buff)), (long)temp.set);
-                    }
-
-                    if (temp.get > 0) {
-                        fprintf(stdout, "get: %s (%ld) ",
-                                hrtime2text(temp.getDelta / temp.get,
-                                            buff, sizeof (buff)), (long)temp.get);
-                    }
-                    ++shift;
-                    if (shift % 10 == 0) {
-                        fprintf(stdout, "\n");
-                    }
-                    fflush(stdout);
-                }
-                current = temp.set + temp.get;
-            }
-
-
-            if (progress) {
-                fprintf(stdout, ".\n");
-            }
-
-
             for (ii = 0; ii < no_threads; ++ii) {
                 void *ret;
                 pthread_join(threads[ii], &ret);
-                struct thread_context *ctx = ret;
-                struct report *rep = &ctx->thr_summary;
-
-                set += rep->set;
-                get += rep->get;
-                setDelta += rep->setDelta;
-                getDelta += rep->getDelta;
-                if (rep->bestSet < bestSet) {
-                    bestSet = rep->bestSet;
-                    bestSetTid = ii;
-                }
-                if (rep->worstSet > worstSet) {
-                    worstSet = rep->worstSet;
-                    worstSetTid = ii;
-                }
-                if (rep->bestGet < bestGet) {
-                    bestGet = rep->bestGet;
-                    bestGetTid = ii;
-                }
-                if (rep->worstGet > worstGet) {
-                    worstGet = rep->worstGet;
-                    worstGetTid = ii;
-                }
-
+                assert(ret == (void*)&ctx[ii]);
                 if (verbose) {
-                    char setTime[80];
-                    char getTime[80];
-                    char bestSetTime[80];
-                    char bestGetTime[80];
-                    char worstSetTime[80];
-                    char worstGetTime[80];
-
-                    printf("Thread: %d\n", ii);
-                    if (rep->set > 0) {
-                        printf("  Avg set: %s (%ld) min: %s max: %s\n",
-                               hrtime2text(rep->setDelta / rep->set,
-                                           setTime, sizeof (setTime)),
-                               (long)rep->set,
-                               hrtime2text(rep->bestSet,
-                                           bestSetTime, sizeof (bestSetTime)),
-                               hrtime2text(rep->worstSet,
-                                           worstSetTime, sizeof (worstSetTime)));
-
-                    }
-                    if (rep->get > 0) {
-                        printf("  Avg get: %s (%ld) min: %s max: %s\n",
-                               hrtime2text(rep->getDelta / rep->get,
-                                           getTime, sizeof (getTime)),
-                               (long)rep->get,
-                               hrtime2text(rep->bestGet,
-                                           bestGetTime, sizeof (bestGetTime)),
-                               hrtime2text(rep->worstGet,
-                                           worstGetTime, sizeof (worstGetTime)));
-
-                    }
+                    fprintf(stdout, "Details from thread %d\n", ii);
+                    print_metrics(&ctx[ii]);
                 }
-                ctx = &ctx[ii];
             }
-        } else if (no_iterations > 0) {
-            /* TODO: make this per context
-            reports[0].total = no_iterations;
-            test(&ctx[0]);
-            set = reports[0].set;
-            get = reports[0].get;
-            setDelta = reports[0].setDelta;
-            getDelta = reports[0].getDelta;
-            bestSet = reports[0].bestSet;
-            worstSet = reports[0].worstSet;
-            bestGet = reports[0].bestGet;
-            worstGet = reports[0].worstGet;
-            */
-
         }
 
-
-/*
-        struct ResultMetrics *getResults = calc_metrics(TX_GET); // this does only gets at the moment need a smarter calc_metrics
-*/
-
-        /* print out the results */
-
-/*
-        char tavg[80];
-        char tmin[80];
-        char tmax[80];
-        char tmax90[80];
-        char tmax95[80];
-          printf("Get operations:\n");
-          printf("     #of ops.       min       max        avg      max90th    max95th\n");
-          printf("%13ld", getResults->success_count);
-          printf("%11.11s", hrtime2text(getResults->min_result, tmin, sizeof (tmin)));
-          printf("%11.11s", hrtime2text(getResults->max_result, tmax, sizeof (tmax)));
-          printf("%11.11s", hrtime2text(getResults->average, tavg, sizeof(tavg)));
-          printf("%13.13s", hrtime2text(getResults->max90th_result, tmax90, sizeof(tmax90)));
-          printf("%12.12s", hrtime2text(getResults->max95th_result, tmax95, sizeof(tmax95)));
-
-          printf("\n\n");
-        */
-
-        nget += get;
-        nset += set;
-
-        printf("Average with %d threads:\n", no_threads);
-        if (set > 0) {
-            char avg[80];
-            char best[80];
-            char worst[80];
-            hrtime2text(setDelta / ((set > 0) ? set : 1), avg, sizeof (avg));
-            hrtime2text(bestSet, best, sizeof (best));
-            hrtime2text(worstSet, worst, sizeof (worst));
-
-            printf("  Avg set: %s (%ld) min: %s (%d) max: %s (%d)\n",
-                   avg, (long)set, best, bestSetTid, worst, worstSetTid);
-        }
-        if (get > 0) {
-            char avg[80];
-            char best[80];
-            char worst[80];
-            hrtime2text(getDelta / ((get > 0) ? get : 1), avg, sizeof (avg));
-            hrtime2text(bestGet, best, sizeof (best));
-            hrtime2text(worstGet, worst, sizeof (worst));
-
-            printf("  Avg get: %s (%ld) min: %s (%d) max: %s (%d)\n",
-                   avg, (long)get, best, bestGetTid, worst, worstGetTid);
-        }
-
-        free(reports);
+        fprintf(stdout, "Average with %d threads\n", no_threads);
+        print_aggregated_metrics(ctx, no_threads);
         free(threads);
+        free(ctx);
     } while (loop);
 
     if (getrusage(RUSAGE_SELF, &rusage) == -1) {

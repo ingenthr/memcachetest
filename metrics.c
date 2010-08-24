@@ -21,15 +21,9 @@
 /*
  * Portions Copyright 2009-2010 Matt Ingenthron
  */
-
 /*
- * The metrics file is all about collecting metrics during a run and then
- * calculating key metrics after the run is complete.
- *
- * loosely reimplemented in C from Faban http://faban.sunsource.net
- *
- * @author Matt Ingenthron <ingenthr@cep.net>
- *
+ * Portions Copyright 2010 Trond Norbye
+ * Simplified the logic to fit our needs.
  */
 
 #include "config.h"
@@ -38,191 +32,169 @@
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "metrics.h"
 #include "memcachetest.h"
 
-/* Stats for all transaction types - the first dimension of the array
- * is always the operation id. This is the index into the operations
- * array of the mix. The second dimension, existent only for histograms
- * is the bucket.
- */
+bool initialize_thread_ctx(struct thread_context *ctx, int offset, size_t total)
+{
+    ctx->offset = offset;
+    ctx->total = total;
 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
-const int RAMP_UP = 30;
-static struct TxnResult * txn_list_first = NULL;
-
-
-/**
- * Number of successful transactions during steady state.
- * This is used for final reporting and in-flight reporting of averages.
- */
-int txCntStdy[6];
-
-
-/**
- * Number of failed transactions during steady state.
- * This is used for final reporting and in-flight reporting of averages.
- */
-int errCntStdy[6];
-
-struct TxnRunStatus {
-    int txnCount;
-    int avgRespTime;
-};
-
-
-static void insert(struct thread_context *ctx, struct TxnResult* item) {
-    if (ctx->head == NULL) {
-        ctx->head = item;
-    } else {
-        struct TxnResult* ptr = ctx->head;
-        int searching = 1;
-
-        while (searching) {
-            if (item->respTime <= ptr->respTime) {
-                /* should be on the left */
-                if (ptr->left == NULL) {
-                    ptr->left = item;
-                    searching = 0;
-                } else {
-                    ptr = ptr->left;
-                }
-            } else {
-                /* should be on the right */
-                if (ptr->right == NULL) {
-                    ptr->right = item;
-                    searching = 0;
-                } else {
-                    ptr = ptr->right;
-                }
+    for (int ii = 0; ii < TX_CAS - TX_GET; ++ii) {
+        ctx->tx[ii].set = calloc(ctx->total, sizeof(hrtime_t));
+        if (ctx->tx[ii].set == NULL) {
+            for (int jj = 0; jj < ii; ++jj) {
+                free(ctx->tx[jj].set);
             }
-        }
-    }
-}
-
-static int walk(struct TxnResult* node, int (*walk_function)(void *, struct TxnResult* node), void *cookie) {
-    int ret;
-    if (node->left) {
-        if ((ret = walk(node->left, walk_function, cookie)) != 0) {
-            return ret;
-        }
-    }
-    if ((ret = (*walk_function)(cookie, node) != 0)) {
-        return ret;
-    }
-
-    if (node->right) {
-        if ((ret = walk(node->right, walk_function, cookie)) != 0) {
-            return ret;
+            return false;
         }
     }
 
-    return 0;
+    return true;
 }
 
-#if 0
-static struct TxnResult *create_txn(struct TxnResult *item) {
-    static struct TxnResult *items;
-    static int no_left = 0;
-    struct TxnResult *ret;
-
-    if (no_left == 0) {
-        // Need to allocate more items!!
-        items = calloc(1000, sizeof (struct TxnResult));
-        assert(items != NULL);
-        no_left = 1000;
-    }
-    ret = items;
-    ++items;
-    --no_left;
-
-    ret->respTime = item->respTime;
-    ret->left = ret->right = NULL;
-
-    return ret;
-}
-#endif
-
-struct walker_execution_time {
-    long current;
-    long elementnum;
-    hrtime_t exec_time;
-};
-
-static int get_exec_time_walker(void *cookie, struct TxnResult* node) {
-    struct walker_execution_time *tim = cookie;
-    if (tim->current < tim->elementnum) {
-        tim->exec_time = node->respTime;
-        ++tim->current;
-        return 0;
-    } else {
-        return 1;
-    }
-}
-
-/*
- * Get the execution time for a given element number in the list
- * @param elementnum the element number you want the execution time for
+/**
+ * A comparison-function used by qsort.
+ * @param p1 element 1 to compare
+ * @param p2 element 2 to compare
+ * @return -1, 0 or 1
  */
-static hrtime_t get_exec_time(struct TxnResult* root, long elementnum) {
-    struct walker_execution_time tim = { .current = 0, .exec_time = 0, .elementnum = elementnum };
+static int compare(const void *p1, const void *p2)
+{
+   hrtime_t a = *((hrtime_t *)p1);
+   hrtime_t b = *((hrtime_t *)p2);
 
-    walk(root, get_exec_time_walker, &tim);
-    return tim.exec_time;
-}
-
-struct walker_average {
-    hrtime_t delta;
-    long count;
-};
-
-static int get_average_walker(void *cookie, struct TxnResult* node) {
-    struct walker_average *a = cookie;
-    ++a->count;
-    a->delta += node->respTime;
-    return 0;
-}
-
-/*
- * Get the execution time for a given element number in the list
- * @param elementnum the element number you want the execution time for
- */
-static hrtime_t calc_average(struct TxnResult* a) {
-    struct walker_average avg = { .count = 0, .delta = 0 };
-    walk(a, get_average_walker, &avg);
-    return avg.delta / avg.count;
+   if (a < b) {
+      return -1;
+   } else if (a > b) {
+      return 1;
+   } else {
+      return 0;
+   }
 }
 
 /**
  * External interface
  */
 void record_tx(enum TxnType tx_type, hrtime_t time, struct thread_context *ctx) {
-    struct TxnResult* new_txn = calloc(1, sizeof(struct TxnResult));
-    new_txn->respTime = time;
-    new_txn->left = new_txn->right = new_txn->next = NULL;
-    insert(ctx, new_txn);
-    txCntStdy[tx_type]++;
+    assert(tx_type >= 0 && tx_type < (TX_CAS - TX_GET));
+    ctx->tx[tx_type].set[ctx->tx[tx_type].current++] = time;
 }
 
-void record_error(enum TxnType tx_type, hrtime_t t) {
-    (void)t;
-    errCntStdy[tx_type]++;
-}
+struct ResultMetrics *calc_metrics(enum TxnType tx_type,
+                                   struct thread_context *ctx)
+{
+    struct ResultMetrics *ret = calloc(1, sizeof(*ret));
+    if (ret == NULL) {
+        return NULL;
+    }
+    struct samples *sample = &ctx->tx[tx_type];
+    if (sample->current == 0) {
+        return ret;
+    }
 
-struct ResultMetrics *calc_metrics(enum TxnType tx_type) {
-    struct ResultMetrics * ret = calloc(1, sizeof (struct ResultMetrics));
-    ret->success_count = txCntStdy[tx_type];
+    // sort the result
+    qsort(sample->set, sample->current, sizeof(hrtime_t), compare);
 
+    ret->success_count = sample->current ;
     long percentile90 = (0.9) * (float) (ret->success_count - 1) + 1.0;
     long percentile95 = (0.95) * (float) (ret->success_count - 1) + 1.0;
-    assert(ret != NULL);
 
-    ret->max90th_result = get_exec_time(txn_list_first, percentile90);
-    ret->max95th_result = get_exec_time(txn_list_first, percentile95);
-    ret->min_result = get_exec_time(txn_list_first, 0);
-    ret->max_result = get_exec_time(txn_list_first, ret->success_count);
-    ret->average = calc_average(txn_list_first);
+    ret->max90th_result = sample->set[percentile90];
+    ret->max95th_result = sample->set[percentile95];
+    ret->min_result = sample->set[0];
+    ret->max_result = sample->set[sample->current - 1];
+
+    hrtime_t total = 0;
+    for (int ii = 0; ii < sample->current; ++ii) {
+        total += sample->set[ii];
+    }
+
+    ret->average = total / sample->current;
 
     return ret;
+}
+
+/**
+ * Convert a time (in ns) to a human readable form...
+ * @param time the time in nanoseconds
+ * @param buffer where to store the result
+ * @param size the size of the buffer
+ * @return buffer
+ */
+static const char* hrtime2text(hrtime_t t, char *buffer, size_t size) {
+    static const char * const extensions[] = {"ns", "us", "ms", "s" }; //TODO: get a greek Mu in here correctly
+    int id = 0;
+
+    while (t > 9999) {
+        ++id;
+        t /= 1000;
+        if (id > 3) {
+            break;
+        }
+    }
+
+    snprintf(buffer, size, "%d %s", (int) t, extensions[id]);
+    buffer[size - 1] = '\0';
+    return buffer;
+}
+
+static void print_details(enum TxnType tx_type, struct ResultMetrics *r) {
+    static const char * txt[] = { [TX_GET] = "Get",
+                                   [TX_SET] = "Set",
+                                   [TX_ADD] = "Add",
+                                   [TX_REPLACE] = "Replace",
+                                   [TX_APPEND] = "Append",
+                                   [TX_PREPEND] = "Prepend",
+                                   [TX_CAS] = "Cas" };
+
+
+    printf("%s operations:\n", txt[tx_type]);
+    char tavg[80];
+    char tmin[80];
+    char tmax[80];
+    char tmax90[80];
+    char tmax95[80];
+    printf("     #of ops.       min       max        avg      max90th    max95th\n");
+    printf("%13ld%11.11s%11.11s%11.11s%13.13s%12.12s\n\n", r->success_count,
+           hrtime2text(r->min_result, tmin, sizeof (tmin)),
+           hrtime2text(r->max_result, tmax, sizeof (tmax)),
+           hrtime2text(r->average, tavg, sizeof(tavg)),
+           hrtime2text(r->max90th_result, tmax90, sizeof(tmax90)),
+           hrtime2text(r->max95th_result, tmax95, sizeof(tmax95)));
+}
+
+void print_metrics(struct thread_context *ctx) {
+    for (int ii = 0; ii < TX_CAS - TX_GET; ++ii) {
+        if (ctx->tx[ii].current > 0) {
+            struct ResultMetrics *r = calc_metrics(ii, ctx);
+            if (r) {
+                print_details(ii, r);
+                free(r);
+            }
+        }
+    }
+}
+
+void print_aggregated_metrics(struct thread_context *ctx, int num)
+{
+    int total = 0;
+    for (int ii = 0; ii < num; ++ii) {
+        total += ctx[ii].total;
+    }
+
+    struct thread_context context;
+    memset(&context, 0, sizeof(context));
+    initialize_thread_ctx(&context, 0, total);
+
+    for (int ii = 0; ii < num; ++ii) {
+        for (int jj = 0; jj < TX_CAS - TX_GET; ++jj) {
+            memcpy(context.tx[jj].set + context.tx[jj].current,
+                   ctx[ii].tx[jj].set, ctx[ii].tx[jj].current * sizeof(hrtime_t));
+            context.tx[jj].current += ctx[ii].tx[jj].current;
+        }
+    }
+
+    print_metrics(&context);
 }
