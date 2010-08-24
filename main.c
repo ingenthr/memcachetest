@@ -153,7 +153,7 @@ struct connection {
  * Create a handle to a memcached library
  */
 static void *create_memcached_handle(void) {
-    struct memcachelib* ret = malloc(sizeof (*ret));
+    struct memcachelib* ret = malloc(sizeof(*ret));
     ret->type = current_memcached_library;
 
     switch (current_memcached_library) {
@@ -219,7 +219,7 @@ static void *create_memcached_handle(void) {
  * Release a handle to a memcached library
  */
 static void release_memcached_handle(void *handle) {
-    struct memcachelib* lib = (struct memcachelib*) handle;
+    struct memcachelib* lib = (struct memcachelib*)handle;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
     case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
@@ -253,7 +253,7 @@ static void release_memcached_handle(void *handle) {
 static inline int memcached_set_wrapper(struct connection *connection,
                                         const char *key, int nkey,
                                         const void *data, int size) {
-    struct memcachelib* lib = (struct memcachelib*) connection->handle;
+    struct memcachelib* lib = (struct memcachelib*)connection->handle;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
     case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
@@ -299,7 +299,7 @@ static inline int memcached_set_wrapper(struct connection *connection,
  */
 static inline void *memcached_get_wrapper(struct connection* connection,
                                           const char *key, int nkey, size_t *size) {
-    struct memcachelib* lib = (struct memcachelib*) connection->handle;
+    struct memcachelib* lib = (struct memcachelib*)connection->handle;
     void *ret = NULL;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
@@ -345,7 +345,7 @@ static size_t connection_pool_size = 1;
 static int thread_bind_connection = 0;
 
 static int create_connection_pool(void) {
-    connectionpool = calloc(connection_pool_size, sizeof (struct connection));
+    connectionpool = calloc(connection_pool_size, sizeof(struct connection));
     if (connectionpool == NULL) {
         return -1;
     }
@@ -400,8 +400,8 @@ static void release_connection(struct connection *connection) {
  * @return buffer
  */
 static const char* timeval2text(struct timeval* val, char *buffer, size_t size) {
-    snprintf(buffer, size, "%2ld.%06lu", (long) val->tv_sec,
-             (long) val->tv_usec);
+    snprintf(buffer, size, "%2ld.%06lu", (long)val->tv_sec,
+             (long)val->tv_usec);
 
     return buffer;
 }
@@ -448,7 +448,7 @@ static int initialize_dataset(void) {
         total += dataset[ii];
     }
 
-    datablock.avg = (size_t) (total / no_items);
+    datablock.avg = (size_t)(total / no_items);
     return 0;
 }
 
@@ -490,7 +490,7 @@ static int populate_dataset(struct thread_context *ctx) {
  * @return arg
  */
 static void *populate_thread_main(void* arg) {
-    if (populate_dataset((struct thread_context*) arg) == 0) {
+    if (populate_dataset((struct thread_context*)arg) == 0) {
         return arg;
     } else {
         return NULL;
@@ -505,7 +505,7 @@ static void *populate_thread_main(void* arg) {
 static int populate_data(int no_threads) {
     int ret = 0;
     if (no_threads > 1) {
-        pthread_t *threads = calloc(sizeof (pthread_t), no_threads);
+        pthread_t *threads = calloc(sizeof(pthread_t), no_threads);
         struct thread_context *ctx = calloc(sizeof(struct thread_context), no_threads);
         int perThread = no_items / no_threads;
         int rest = no_items % no_threads;
@@ -623,7 +623,7 @@ static int test(struct thread_context *ctx) {
  * @return arg
  */
 void *test_thread_main(void* arg) {
-    test((struct thread_context*) arg);
+    test((struct thread_context*)arg);
     return arg;
 }
 
@@ -632,7 +632,7 @@ void *test_thread_main(void* arg) {
  * @param hostname the hostname:port to connect to
  */
 static void add_host(const char *hostname) {
-    struct host *entry = malloc(sizeof (struct host));
+    struct host *entry = malloc(sizeof(struct host));
     if (entry == 0) {
         fprintf(stderr, "Failed to allocate memory for <%s>. Host ignored\n",
                 hostname);
@@ -661,7 +661,7 @@ static struct addrinfo *lookuphost(const char *hostname, in_port_t port) {
     char service[NI_MAXSERV];
     int error;
 
-    (void) snprintf(service, NI_MAXSERV, "%d", port);
+    (void)snprintf(service, NI_MAXSERV, "%d", port);
     if ((error = getaddrinfo(hostname, service, &hints, &ai)) != 0) {
         if (error != EAI_SYSTEM) {
             fprintf(stderr, "getaddrinfo(): %s\n", gai_strerror(error));
@@ -685,14 +685,14 @@ static int get_server_rusage(const struct host *entry, struct rusage *rusage) {
                 return -1;
             }
 
-            memset(rusage, 0, sizeof (*rusage));
+            memset(rusage, 0, sizeof(*rusage));
 
             if ((sock = socket(addrinfo->ai_family,
                                addrinfo->ai_socktype,
                                addrinfo->ai_protocol)) != -1) {
                 if (connect(sock, addrinfo->ai_addr, addrinfo->ai_addrlen) != -1) {
                     if (send(sock, "stats\r\n", 7, 0) > 0) {
-                        if (recv(sock, buffer, sizeof (buffer), 0) > 0) {
+                        if (recv(sock, buffer, sizeof(buffer), 0) > 0) {
                             char *ptr = strstr(buffer, "rusage_user");
                             if (ptr != NULL) {
                                 rusage->ru_utime.tv_sec = atoi(ptr + 12);
@@ -901,8 +901,8 @@ int main(int argc, char **argv) {
     size_t nget = 0;
     size_t nset = populate ? no_items : 0;
     do {
-        pthread_t *threads = calloc(sizeof (pthread_t), no_threads);
-        struct thread_context *ctx = calloc(sizeof (struct thread_context), no_threads);
+        pthread_t *threads = calloc(sizeof(pthread_t), no_threads);
+        struct thread_context *ctx = calloc(sizeof(struct thread_context), no_threads);
         int ii;
 
         if (no_iterations > 0) {
@@ -948,16 +948,16 @@ int main(int argc, char **argv) {
 
         gettimeofday(&endtime, NULL);
         fprintf(stdout, "Usr: %s\n", timeval2text(&rusage.ru_utime,
-                                                  buffer, sizeof (buffer)));
+                                                  buffer, sizeof(buffer)));
         fprintf(stdout, "Sys: %s\n", timeval2text(&rusage.ru_stime,
-                                                  buffer, sizeof (buffer)));
+                                                  buffer, sizeof(buffer)));
 
         if (starttime.tv_sec != 0 && endtime.tv_sec != 0) {
             endtime.tv_sec -= starttime.tv_sec;
             endtime.tv_usec -= starttime.tv_usec;
             fprintf(stdout, "Tot: %s\n", timeval2text(&endtime,
                                                       buffer,
-                                                      sizeof (buffer)));
+                                                      sizeof(buffer)));
         }
 
         if (get_server_rusage(hosts, &rusage) != -1) {
@@ -968,9 +968,9 @@ int main(int argc, char **argv) {
 
             fprintf(stdout, "Server time:\n");
             fprintf(stdout, "Usr: %s\n", timeval2text(&rusage.ru_utime,
-                                                      buffer, sizeof (buffer)));
+                                                      buffer, sizeof(buffer)));
             fprintf(stdout, "Sys: %s\n", timeval2text(&rusage.ru_stime,
-                                                      buffer, sizeof (buffer)));
+                                                      buffer, sizeof(buffer)));
         }
     }
 
