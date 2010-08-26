@@ -88,7 +88,7 @@ struct datablock {
      * The average size of all the blocks
      */
     size_t avg;
-} datablock = {.data = NULL, .size = 4096, .avg = 0};
+} datablock = {.data = NULL, .size = 4096, .avg = 0, .min_size = 1};
 
 /**
  * Set to one if you would like fixed block sizes
