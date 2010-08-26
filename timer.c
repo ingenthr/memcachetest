@@ -32,7 +32,7 @@ hrtime_t gethrtime() {
         return (-1ULL);
     }
 
-    ret = ts.tv_sec * 1000000000;
+    ret = (hrtime_t)ts.tv_sec * 1000000000;
     ret += ts.tv_nsec;
 #elif HAVE_GETTIMEOFDAY
     struct timeval tv;
@@ -40,7 +40,7 @@ hrtime_t gethrtime() {
         return (-1ULL);
     }
 
-    ret = tv.tv_sec * 1000000000;
+    ret = (hrtime_t)tv.tv_sec * 1000000000;
     ret += tv.tv_usec * 1000;
 #endif
 
