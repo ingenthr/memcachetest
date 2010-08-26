@@ -33,6 +33,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include "metrics.h"
 #include "memcachetest.h"
 
