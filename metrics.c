@@ -125,19 +125,15 @@ struct ResultMetrics *calc_metrics(enum TxnType tx_type,
  * @return buffer
  */
 static const char* hrtime2text(hrtime_t t, char *buffer, size_t size) {
-    static const char * const extensions[] = {"ns", "us", "ms", "s" }; //TODO: get a greek Mu in here correctly
-    int id = 0;
+    static const char * const extensions[] = {"s", "ms", "us", "ns"}; //TODO: get a greek Mu in here correctly
+    int id = sizeof(extensions)/sizeof(extensions[0]) - 1;
 
-    while (t > 9999) {
-        ++id;
+    while (t > 9999 && id > 0) {
+        id--;
         t /= 1000;
-        if (id > 3) {
-            break;
-        }
     }
 
     snprintf(buffer, size, "%d %s", (int) t, extensions[id]);
-    buffer[size - 1] = '\0';
     return buffer;
 }
 
