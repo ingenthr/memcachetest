@@ -422,6 +422,7 @@ static int binary_get(struct Server* server, struct Item* item)
 #ifndef HAVE_MEMCACHED_PROTOCOL_BINARY_H
     (void)server;
     (void)item;
+    fprintf(stderr, "Compiled without support for binary protocol\n");
     return -1;
 #else
     uint16_t keylen = item->keylen;
@@ -525,6 +526,7 @@ static int binary_store(struct Server* server,
     (void)server;
     (void)cmd;
     (void)item;
+    fprintf(stderr, "Compiled without support for binary protocol\n");
     return -1;
 #else
     uint16_t keylen = item->keylen;
