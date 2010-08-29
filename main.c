@@ -605,7 +605,7 @@ static int test(struct thread_context *ctx) {
                 }
                 record_tx(TX_GET, delta, ctx);
                 free(data);
-            } else {
+            } else if (dataset[idx] > 0) {
                 fprintf(stderr, "missing data for <%s>\n", key);
                 // record_error(TX_GET, delta);
             }
