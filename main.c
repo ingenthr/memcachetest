@@ -504,53 +504,45 @@ static void *populate_thread_main(void* arg) {
  */
 static int populate_data(int no_threads) {
     int ret = 0;
-    if (no_threads > 1) {
-        pthread_t *threads = calloc(sizeof(pthread_t), no_threads);
-        struct thread_context *ctx = calloc(sizeof(struct thread_context), no_threads);
-        int perThread = no_items / no_threads;
-        int rest = no_items % no_threads;
-        size_t offset = 0;
-        int ii;
+    pthread_t *threads = calloc(sizeof(pthread_t), no_threads);
+    struct thread_context *ctx = calloc(sizeof(struct thread_context), no_threads);
+    int perThread = no_items / no_threads;
+    int rest = no_items % no_threads;
+    size_t offset = 0;
+    int ii;
 
-        if (threads == NULL || ctx == NULL) {
-            fprintf(stderr, "Failed to allocate memory\n");
-            free(threads);
-            free(ctx);
-            return -1;
-        }
-
-        for (ii = 0; ii < no_threads; ++ii) {
-            struct thread_context *ctxi = &ctx[ii];
-            if (!initialize_thread_ctx(ctxi, offset,
-                                       (rest > 0) ? perThread + 1 : perThread)) {
-                abort();
-            }
-            offset += perThread;
-            if (rest > 0) {
-                --rest;
-                ++offset;
-            }
-
-            pthread_create(&threads[ii], 0, populate_thread_main,
-                           &ctx[ii]);
-        }
-
-        for (ii = 0; ii < no_threads; ++ii) {
-            void *threadret;
-            pthread_join(threads[ii], &threadret);
-            if (threadret == NULL) {
-                ret = -1;
-            }
-        }
+    if (threads == NULL || ctx == NULL) {
+        fprintf(stderr, "Failed to allocate memory\n");
         free(threads);
         free(ctx);
-    } else { /* only one thread */
-        struct thread_context ctx = {.offset=0, .total=no_items};
+        return -1;
+    }
 
-        if (populate_dataset(&ctx) == -1) {
-            return 1;
+    for (ii = 0; ii < no_threads; ++ii) {
+        struct thread_context *ctxi = &ctx[ii];
+        if (!initialize_thread_ctx(ctxi, offset,
+                                   (rest > 0) ? perThread + 1 : perThread)) {
+            abort();
+        }
+        offset += perThread;
+        if (rest > 0) {
+            --rest;
+            ++offset;
+        }
+
+        pthread_create(&threads[ii], 0, populate_thread_main,
+                       &ctx[ii]);
+    }
+
+    for (ii = 0; ii < no_threads; ++ii) {
+        void *threadret;
+        pthread_join(threads[ii], &threadret);
+        if (threadret == NULL) {
+            ret = -1;
         }
     }
+    free(threads);
+    free(ctx);
 
     return ret;
 }
