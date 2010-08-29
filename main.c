@@ -881,7 +881,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if (populate && populate_data(no_threads) == -1) {
+    if (populate && populate_data(no_threads) != 0) {
         return 1;
     }
 
