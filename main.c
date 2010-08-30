@@ -461,6 +461,7 @@ static int populate_dataset(struct thread_context *ctx) {
     int end = ctx->offset + ctx->total;
     char key[12];
     size_t nkey;
+    int sres = -1;
 
     assert(end > ctx->offset);
     if (verbose) {
@@ -468,11 +469,12 @@ static int populate_dataset(struct thread_context *ctx) {
     }
     for (int ii = ctx->offset; ii < end; ++ii) {
         nkey = snprintf(key, sizeof(key), "%d", ii);
-        if (memcached_set_wrapper(connection,
+        sres = memcached_set_wrapper(connection,
                                   key,
                                   nkey,
                                   datablock.data,
-                                  dataset[ii]) != 0) {
+                                  dataset[ii]);
+        if ( sres != 0) {
             fprintf(stderr, "Failed to set data!\n");
             release_connection(connection);
             return -1;

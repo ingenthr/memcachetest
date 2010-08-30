@@ -42,6 +42,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <sys/uio.h>
+#include <math.h>
 
 struct Server {
     int sock;
@@ -69,6 +70,7 @@ static int binary_store(struct Server* server, enum StoreCommand cmd,
                         const struct Item *item);
 static int binary_get(struct Server* server, struct Item* item);
 static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd, const struct Item *item);
+static int libmemc_store_backoff(struct Memcache* handle, enum StoreCommand cmd, const struct Item *item, int backoff);
 static struct Server *get_server(struct Memcache *handle, const char *key);
 static int server_connect(struct Server *server);
 
@@ -220,6 +222,55 @@ static struct Server *get_server(struct Memcache *handle, const char *key) {
 static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd,
                          const struct Item *item) {
     struct Server* server = get_server(handle, item->key);
+    int retval = 0;
+    if (server == NULL) {
+        fprintf(stderr, "no server\n");
+        return -1;
+    } else {
+        if (server->sock == -1) {
+            if (server_connect(server) == -1) {
+                fprintf(stderr, "no connection\n");
+                return -1;
+            }
+        }
+
+        if (handle->protocol == Binary) {
+            retval = binary_store(server, cmd, item);
+        } else {
+            retval = textual_store(server, cmd, item);
+        }
+        if (retval < 0) {
+            if (retval == -2) {
+                return libmemc_store_backoff(handle, cmd, item, 1);
+            } else {
+              return retval;
+            }
+        }
+    }
+    return retval;
+}
+
+static int libmemc_store_backoff(struct Memcache* handle, enum StoreCommand cmd,
+                         const struct Item *item, int backoff) {
+    struct Server* server = get_server(handle, item->key);
+    useconds_t sleepTime = 10.0 * 1000;
+    int backoff_try = 180;
+    if (backoff > backoff_try) {
+        fprintf(stderr, "Failed backoff set %d times.\n", backoff_try);
+        return -1;
+    }
+    else if (backoff < 5) {
+        sleepTime = 10 * 1000 * exp(backoff);
+    }
+    else {
+      sleepTime = 1000 * 1000; // 1 sec
+    }
+
+    fprintf(stderr, "Temporary store failure; backoff to retry in %u ms.\n", (unsigned int)sleepTime/1000);
+
+    usleep(sleepTime);
+
+    int retval = 1;
     if (server == NULL) {
         return -1;
     } else {
@@ -230,11 +281,20 @@ static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd,
         }
 
         if (handle->protocol == Binary) {
-            return binary_store(server, cmd, item);
+            retval = binary_store(server, cmd, item);
         } else {
-            return textual_store(server, cmd, item);
+            retval = textual_store(server, cmd, item);
+        }
+        if (retval < 0) {
+            if (retval == -2) {
+                backoff++;
+                return libmemc_store_backoff(handle, cmd, item, backoff);
+            } else {
+              return retval;
+            }
         }
     }
+    return retval;
 }
 
 static size_t server_receive(struct Server* server, char* data, size_t size, int line);
@@ -598,6 +658,8 @@ static int binary_store(struct Server* server,
         free(buffer);
     }
 
+    if (response.message.header.response.status == PROTOCOL_BINARY_RESPONSE_ETMPFAIL)
+        return -2; // meaning tempfail
     return (response.message.header.response.status == 0) ? 0 : -1;
 #endif
 }
@@ -736,6 +798,9 @@ static int textual_store(struct Server* server,
                                   "NOT_STORED\r\n") == server->buffer) {
                     server->errmsg = strdup("Item NOT stored");
                     return -1;
+                } else if (strstr(server->buffer, "SERVER_ERROR temporary failure") == server->buffer) {
+                    server->errmsg = strdup("textual_store SERVER_ERROR");
+                    return -2; //indicating temp fail
                 } else if (strstr(server->buffer, "SERVER_ERROR ") == server->buffer) {
                     server->errmsg = strdup("textual_store SERVER_ERROR");
                     return -1;
