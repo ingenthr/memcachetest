@@ -3,9 +3,10 @@ AUTOMAKE_OPTIONS = foreign
 bin_PROGRAMS = memcachetest
 
 memcachetest_SOURCES = \
-                       boxmuller.c \
+                       boxmuller.c boxmuller.h \
                        libmemc.c libmemc.h \
                        main.c \
+                       memcachetest.h \
                        metrics.c metrics.h \
                        timer.c \
                        vbucket.c vbucket.h
