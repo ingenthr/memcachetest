@@ -47,6 +47,7 @@ struct ResultMetrics {
     hrtime_t min_result;
     hrtime_t max90th_result;
     hrtime_t max95th_result;
+    hrtime_t max99th_result;
     hrtime_t average;
     long success_count;
     long error_count;

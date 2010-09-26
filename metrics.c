@@ -101,9 +101,11 @@ struct ResultMetrics *calc_metrics(enum TxnType tx_type,
     ret->success_count = sample->current ;
     long percentile90 = (0.9) * (float) (ret->success_count - 1) + 1.0;
     long percentile95 = (0.95) * (float) (ret->success_count - 1) + 1.0;
+    long percentile99 = (0.99) * (float) (ret->success_count - 1) + 1.0;
 
     ret->max90th_result = sample->set[percentile90];
     ret->max95th_result = sample->set[percentile95];
+    ret->max99th_result = sample->set[percentile99];
     ret->min_result = sample->set[0];
     ret->max_result = sample->set[sample->current - 1];
 
@@ -153,13 +155,15 @@ static void print_details(enum TxnType tx_type, struct ResultMetrics *r) {
     char tmax[80];
     char tmax90[80];
     char tmax95[80];
-    printf("     #of ops.       min       max        avg      max90th    max95th\n");
-    printf("%13ld%11.11s%11.11s%11.11s%13.13s%12.12s\n\n", r->success_count,
+    char tmax99[80];
+    printf("     #of ops.       min       max       avg   max90th   max95th   max99th\n");
+    printf("%13ld%10.10s%10.10s%10.10s%10.10s%10.10s%10.10s\n\n", r->success_count,
            hrtime2text(r->min_result, tmin, sizeof (tmin)),
            hrtime2text(r->max_result, tmax, sizeof (tmax)),
            hrtime2text(r->average, tavg, sizeof(tavg)),
            hrtime2text(r->max90th_result, tmax90, sizeof(tmax90)),
-           hrtime2text(r->max95th_result, tmax95, sizeof(tmax95)));
+           hrtime2text(r->max95th_result, tmax95, sizeof(tmax95)),
+           hrtime2text(r->max99th_result, tmax99, sizeof(tmax99)));
 }
 
 void print_metrics(struct thread_context *ctx) {
