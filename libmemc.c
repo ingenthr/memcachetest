@@ -47,7 +47,7 @@
 struct Server {
     int sock;
     struct addrinfo *addrinfo;
-    const char *errmsg;
+    char *errmsg;
     const char *peername;
     char *buffer;
     size_t buffersize;
@@ -92,6 +92,26 @@ void libmemc_destroy(struct Memcache* handle) {
     }
     free(handle);
 }
+
+char *libmemc_get_error(struct Memcache *handle) {
+    char ret[1024];
+    int len = 0;
+    for (int ii = 0; ii < handle->no_servers; ++ii) {
+        if (handle->servers[ii]->errmsg) {
+            len += snprintf(ret + len, sizeof(ret) - len,
+                            "%s;", handle->servers[ii]->errmsg);
+            free(handle->servers[ii]->errmsg);
+            handle->servers[ii]->errmsg = NULL;
+        }
+    }
+
+    if (len > 0) {
+        ret[len - 1] = '\0';
+    }
+
+    return ret;
+}
+
 
 int libmemc_add_server(struct Memcache *handle, const char *host, in_port_t port) {
     struct Server** servers = calloc(handle->no_servers + 1, sizeof(struct Server));
@@ -251,22 +271,21 @@ static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd,
 }
 
 static int libmemc_store_backoff(struct Memcache* handle, enum StoreCommand cmd,
-                         const struct Item *item, int backoff) {
+                                 const struct Item *item, int backoff) {
     struct Server* server = get_server(handle, item->key);
     useconds_t sleepTime = 10.0 * 1000;
     int backoff_try = 180;
     if (backoff > backoff_try) {
         fprintf(stderr, "Failed backoff set %d times.\n", backoff_try);
         return -1;
-    }
-    else if (backoff < 5) {
+    } else if (backoff < 5) {
         sleepTime = 10 * 1000 * exp(backoff);
-    }
-    else {
+    } else {
       sleepTime = 1000 * 1000; // 1 sec
     }
 
-    fprintf(stderr, "Temporary store failure; backoff to retry in %u ms.\n", (unsigned int)sleepTime/1000);
+    fprintf(stderr, "Temporary store failure; backoff to retry in %u ms.\n",
+            (unsigned int)sleepTime/1000);
 
     usleep(sleepTime);
 
@@ -578,6 +597,25 @@ static int binary_get(struct Server* server, struct Item* item)
 #endif
 }
 
+static const char * const response_texts[0xffff] = {
+    [PROTOCOL_BINARY_RESPONSE_SUCCESS] = "success",
+    [PROTOCOL_BINARY_RESPONSE_KEY_ENOENT] = "ENOENT",
+    [PROTOCOL_BINARY_RESPONSE_KEY_EEXISTS] = "EEXISTS",
+    [PROTOCOL_BINARY_RESPONSE_E2BIG] = "E2BIG",
+    [PROTOCOL_BINARY_RESPONSE_EINVAL] = "EINVAL",
+    [PROTOCOL_BINARY_RESPONSE_NOT_STORED] = "not stored",
+    [PROTOCOL_BINARY_RESPONSE_DELTA_BADVAL] = "delta badval",
+    [PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET] = "not my vbucket",
+    [PROTOCOL_BINARY_RESPONSE_AUTH_ERROR] = "auth error",
+    [PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE] = "auth continue",
+    [PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND] = "unknown command",
+    [PROTOCOL_BINARY_RESPONSE_ENOMEM] = "ENOMEM",
+    [PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED] = "ENOTSUP",
+    [PROTOCOL_BINARY_RESPONSE_EINTERNAL] = "EINTERNAL",
+    [PROTOCOL_BINARY_RESPONSE_EBUSY] = "EBUSY",
+    [PROTOCOL_BINARY_RESPONSE_ETMPFAIL] = "ETMPFAIL"
+};
+
 static int binary_store(struct Server* server,
                         enum StoreCommand cmd,
                         const struct Item *item)
@@ -658,9 +696,24 @@ static int binary_store(struct Server* server,
         free(buffer);
     }
 
-    if (response.message.header.response.status == PROTOCOL_BINARY_RESPONSE_ETMPFAIL)
+    const char *textual = response_texts[ntohs(response.message.header.response.status)];
+    switch (ntohs(response.message.header.response.status)) {
+    case PROTOCOL_BINARY_RESPONSE_SUCCESS:
+        return 0;
+    case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
         return -2; // meaning tempfail
-    return (response.message.header.response.status == 0) ? 0 : -1;
+    default:
+        {
+            char errmsg[128];
+            snprintf(errmsg, sizeof(errmsg),
+                     "binary_store failed: %0x (%s)",
+                     ntohs(response.message.header.response.status),
+                     textual == NULL ? "unknown" : textual);
+            server->errmsg = strdup(errmsg);
+            server_disconnect(server);
+        }
+        return -1;
+    }
 #endif
 }
 

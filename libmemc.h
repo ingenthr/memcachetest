@@ -51,6 +51,7 @@ extern "C"  {
     int libmemc_replace(struct Memcache *handle, const struct Item *item);
     int libmemc_get(struct Memcache *handle, struct Item *item);
     int libmemc_connect_server(const char *hostname, in_port_t port);
+    char *libmemc_get_error(struct Memcache *handle);
 
 #ifdef __cplusplus
 }
