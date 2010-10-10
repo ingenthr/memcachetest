@@ -297,10 +297,10 @@ static inline int memcached_set_wrapper(struct connection *connection,
  * @return pointer to the data on success, -1 otherwise
  * TODO: the return of -1 isn't really true
  */
-static inline void *memcached_get_wrapper(struct connection* connection,
-                                          const char *key, int nkey, size_t *size) {
+static inline bool memcached_get_wrapper(struct connection* connection,
+                                          const char *key, int nkey,
+                                          size_t *size, void **data) {
     struct memcachelib* lib = (struct memcachelib*)connection->handle;
-    void *ret = NULL;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
     case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
@@ -308,9 +308,9 @@ static inline void *memcached_get_wrapper(struct connection* connection,
         {
             memcached_return rc;
             uint32_t flags;
-            ret = memcached_get(lib->handle, key, nkey, size, &flags, &rc);
+            *data = memcached_get(lib->handle, key, nkey, size, &flags, &rc);
             if (rc != MEMCACHED_SUCCESS) {
-                return NULL;
+                return false;
             }
         }
         break;
@@ -324,10 +324,10 @@ static inline void *memcached_get_wrapper(struct connection* connection,
             };
 
             if (libmemc_get(lib->handle, &mitem) != 0) {
-                return NULL;
+                return false;
             }
             *size = mitem.size;
-            ret = mitem.data;
+            *data = mitem.data;
         }
         break;
 
@@ -335,7 +335,7 @@ static inline void *memcached_get_wrapper(struct connection* connection,
         abort();
     }
 
-    return ret;
+    return true;
 }
 
 static char *get_error_msg(struct connection* connection) {
@@ -606,10 +606,12 @@ static int test(struct thread_context *ctx) {
             hrtime_t delta;
             size_t size = 0;
             hrtime_t start = gethrtime();
-            void *data = memcached_get_wrapper(connection, key, nkey, &size);
+            void *data;
+            bool found = memcached_get_wrapper(connection, key, nkey, &size,
+                                               &data);
 
             delta = gethrtime() - start;
-            if (data != NULL) {
+            if (found) {
                 if (size != dataset[idx]) {
                     fprintf(stderr,
                             "Incorrect length returned for <%s>. "
@@ -621,9 +623,8 @@ static int test(struct thread_context *ctx) {
                 }
                 record_tx(TX_GET, delta, ctx);
                 free(data);
-            } else if (dataset[idx] > 0 && &size != 0) {
-                fprintf(stderr, "missing data for <%s>\n", key);
-                // record_error(TX_GET, delta);
+            } else {
+                fprintf(stderr, "<%s> isn't there anymore\n", key);
             }
         }
         release_connection(connection);
