@@ -90,6 +90,8 @@ struct datablock {
     size_t avg;
 } datablock = {.data = NULL, .size = 4096, .avg = 0, .min_size = 1};
 
+const char *prefix = "";
+
 /**
  * Set to one if you would like fixed block sizes
  */
@@ -481,7 +483,7 @@ static int initialize_dataset(void) {
 static int populate_dataset(struct thread_context *ctx) {
     struct connection* connection = get_connection();
     int end = ctx->offset + ctx->total;
-    char key[12];
+    char key[256];
     size_t nkey;
     int sres = -1;
 
@@ -490,7 +492,7 @@ static int populate_dataset(struct thread_context *ctx) {
         fprintf(stderr, "Populating from %d to %d\n", ctx->offset, end);
     }
     for (int ii = ctx->offset; ii < end; ++ii) {
-        nkey = snprintf(key, sizeof(key), "%d", ii);
+        nkey = snprintf(key, sizeof(key), "%s%d", prefix, ii);
         sres = memcached_set_wrapper(connection, key, nkey,
                                      datablock.data, dataset[ii]);
         if (sres != 0) {
@@ -584,12 +586,12 @@ static int get_setval(void) {
 static int test(struct thread_context *ctx) {
     int ret = 0;
     struct connection* connection;
-    char key[12];
+    char key[256];
     size_t nkey;
     for (int ii = 0; ii < ctx->total; ++ii) {
         connection = get_connection();
         int idx = get_setval();
-        nkey = snprintf(key, sizeof(key), "%d", idx);
+        nkey = snprintf(key, sizeof(key), "%s%d", prefix, idx);
 
         if (setprc > 0 && (random() % 100) < setprc) {
             hrtime_t delta;
@@ -770,8 +772,15 @@ int main(int argc, char **argv) {
     int size;
     gettimeofday(&starttime, NULL);
 
-    while ((cmd = getopt(argc, argv, "QW:M:pL:P:Fm:t:h:i:s:c:VlSvC:")) != EOF) {
+    while ((cmd = getopt(argc, argv, "K:QW:M:pL:P:Fm:t:h:i:s:c:VlSvC:")) != EOF) {
         switch (cmd) {
+        case 'K':
+            if (strlen(prefix) > 240) {
+                fprintf(stderr, "Prefix too long\n");
+                return 1;
+            }
+            prefix = optarg;
+            break;
         case 'p':
             progress = 1;
             break;
@@ -860,6 +869,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "\t-S Skip the populate of the data\n");
             fprintf(stderr, "\t-P The probability for a set operation\n");
             fprintf(stderr, "\t   (default: 33 meaning set 33%% of the time)\n");
+            fprintf(stderr, "\t-K specify a prefix that is added to all of the keys\n");
             fprintf(stderr, "\t-C Read vbucket data from host:port specified\n");
             fprintf(stderr, "\nVersion: %s\n\n", VERSION);
             return 1;
