@@ -109,7 +109,7 @@ char *libmemc_get_error(struct Memcache *handle) {
         ret[len - 1] = '\0';
     }
 
-    return ret;
+    return strdup(ret);
 }
 
 
