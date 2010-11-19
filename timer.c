@@ -17,34 +17,69 @@
  *
  * CDDL HEADER END
  */
+
+
+/*
+ * Provide gethrtime() for systems that don't have it natively.
+ */
+
 #include "config.h"
+#ifndef HAVE_GETHRTIME
+
 #include <sys/time.h>
 #include <time.h>
+#include <stdio.h>
 
-#ifndef HAVE_GETHRTIME
+/* Mac OS X implementation using mach_time.h */
+#if defined(HAVE_MACH_MACH_TIME_H)
+#include <mach/mach_time.h>
+
+hrtime_t gethrtime() {
+  static mach_timebase_info_data_t info = {0,0};
+
+  /* Initialize once */
+  if (info.denom == 0) {
+      mach_timebase_info(&info);
+  }
+
+  return mach_absolute_time() * info.numer / info.denom;
+}
+
+/* Implementation using clock_gettime() with CLOCK_MONOTONIC */
+#elif defined(HAVE_CLOCK_GETTIME)
+
+hrtime_t gethrtime() {
+  hrtime_t ret;
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1) {
+    perror("clock_gettime");
+    return (-1ULL);
+  }
+
+  ret = ts.tv_sec * 1000000000;
+  ret += ts.tv_nsec;
+
+  return ret;
+}
+
+#else
+/* Unreliable fallback implementation using gettimeofday() */
 hrtime_t gethrtime() {
     hrtime_t ret;
 
-#ifdef HAVE_CLOCK_GETTIME
-    struct timespec ts;
-
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1) {
-        return (-1ULL);
-    }
-
-    ret = (hrtime_t)ts.tv_sec * 1000000000;
-    ret += ts.tv_nsec;
-#elif HAVE_GETTIMEOFDAY
     struct timeval tv;
     if (gettimeofday(&tv, NULL) == -1) {
+        perror("gettimeofday");
         return (-1ULL);
     }
 
     ret = (hrtime_t)tv.tv_sec * 1000000000;
     ret += tv.tv_usec * 1000;
-#endif
 
     return ret;
 }
 
-#endif
+#endif /* #if defined(HAVE_MACH_MACH_TIME_H) */
+
+#endif /* #ifndef HAVE_GETHRTIME */

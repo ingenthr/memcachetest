@@ -29,6 +29,7 @@ AC_SEARCH_LIBS(sqrt, m)
 AC_SEARCH_LIBS(pthread_create, pthread)
 AC_SEARCH_LIBS(clock_gettime, rt)
 
+AC_CHECK_HEADERS_ONCE(mach/mach_time.h)
 AC_CHECK_HEADERS_ONCE(memcached/protocol_binary.h)
 AC_CHECK_FUNCS_ONCE(gethrtime clock_gettime gettimeofday)
 

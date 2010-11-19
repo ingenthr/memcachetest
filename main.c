@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <signal.h>
