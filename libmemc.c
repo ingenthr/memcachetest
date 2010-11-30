@@ -165,7 +165,17 @@ int libmemc_get(struct Memcache *handle, struct Item *item) {
         if (handle->protocol == Binary) {
             return binary_get(server, item);
         } else {
-            return textual_get(server, item);
+            int ret = textual_get(server, item);
+            if(!ret) {
+                return ret;
+            } else if (ret == -2) { // something went wrong with the get
+                fprintf(stderr, "%s\n", server->errmsg);
+                fflush(stderr);
+                free(server->errmsg);
+                return -1;
+            } else {
+                return -1;
+            }
         }
     }
 }
@@ -796,7 +806,13 @@ static int textual_get(struct Server* server, struct Item* item) {
         memcpy(item->data, result, item->size);
         return 0;
     } else if (strstr(server->buffer, "END") == server->buffer) {
-        return -1;
+        return -1; // indicating a miss
+    } else if (strstr(server->buffer, "SERVER_ERROR") == server->buffer) {
+        server->errmsg = strdup("ASCII get error: ");
+        char *endOfMsg = (strstr(server->buffer, "\r\n"));
+        size_t toCopy = endOfMsg - server->buffer + strlen(server->errmsg) + 1;
+        strlcat(server->errmsg, server->buffer, toCopy);
+        return -2; //indicating a server error
     }
 
     abort();
