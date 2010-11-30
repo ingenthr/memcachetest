@@ -465,7 +465,10 @@ static size_t server_receive(struct Server* server, char* data, size_t size, int
                 server_disconnect(server);
                 return -1;
             }
-        } else {
+        } else if (nread == 0) {
+            server->errmsg = strdup("Server closed connection");
+        }
+        else {
             if (line) {
                 if (strchr(data + offset, '\r') != 0) {
                     stop = 1;
@@ -767,6 +770,10 @@ static int textual_get(struct Server* server, struct Item* item) {
     server_sendv(server, iovec, 3);
 
     size_t nread = server_receive(server, server->buffer,server->buffersize, 1);
+
+    if (nread == 0) {
+        return -2;
+    }
 
     // Split the header line
     if (strstr(server->buffer, "VALUE ") == server->buffer) {
