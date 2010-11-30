@@ -808,10 +808,12 @@ static int textual_get(struct Server* server, struct Item* item) {
     } else if (strstr(server->buffer, "END") == server->buffer) {
         return -1; // indicating a miss
     } else if (strstr(server->buffer, "SERVER_ERROR") == server->buffer) {
-        server->errmsg = strdup("ASCII get error: ");
+        char *errPrefix = strdup("ASCII get error: ");
         char *endOfMsg = (strstr(server->buffer, "\r\n"));
-        size_t toCopy = endOfMsg - server->buffer + strlen(server->errmsg) + 1;
-        strlcat(server->errmsg, server->buffer, toCopy);
+        size_t toCopy = (endOfMsg - server->buffer);
+        server->errmsg = malloc(strlen(errPrefix) + toCopy);
+        memcpy(server->errmsg, errPrefix, strlen(errPrefix) + 1);
+        strncat(server->errmsg, server->buffer, toCopy);
         return -2; //indicating a server error
     }
 
