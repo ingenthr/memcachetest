@@ -595,6 +595,9 @@ static int test(struct thread_context *ctx) {
         nkey = snprintf(key, sizeof(key), "%s%d", prefix, idx);
 
         if (setprc > 0 && (random() % 100) < setprc) {
+            if (verbose) {
+                fprintf(stderr, "CMD: set %s\n", key);
+            }
             hrtime_t delta;
             hrtime_t start = gethrtime();
             memcached_set_wrapper(connection, key, nkey,
