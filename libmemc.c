@@ -274,7 +274,10 @@ static int libmemc_store(struct Memcache* handle, enum StoreCommand cmd,
             if (retval == -2) {
                 return libmemc_store_backoff(handle, cmd, item, 1);
             } else {
-              return retval;
+                fprintf(stderr, "%s\n", server->errmsg);
+                fflush(stderr);
+                free(server->errmsg);
+                return retval;
             }
         }
     }
@@ -477,7 +480,6 @@ static size_t server_receive(struct Server* server, char* data, size_t size, int
             offset += nread;
         }
     } while (offset < size && !stop);
-
     if (line && !stop) {
         server->errmsg = strdup("Protocol error");
         server_disconnect(server);
@@ -757,6 +759,14 @@ static int parse_value_line(char *header, uint32_t* flag, size_t* size, char** d
     return 0;
 }
 
+static char* textual_seterrmsg(struct Server* server, char* messagePrefix) {
+    char *endOfMsg = (strstr(server->buffer, "\r\n"));
+    size_t toCopy = (endOfMsg - server->buffer);
+    server->errmsg = malloc(strlen(messagePrefix) + toCopy); // freed afer use
+    memcpy(server->errmsg, messagePrefix, strlen(messagePrefix) + 1);
+    strncat(server->errmsg, server->buffer, toCopy);
+}
+
 static int textual_get(struct Server* server, struct Item* item) {
     uint32_t flag;
 
@@ -815,12 +825,7 @@ static int textual_get(struct Server* server, struct Item* item) {
     } else if (strstr(server->buffer, "END") == server->buffer) {
         return -1; // indicating a miss
     } else if (strstr(server->buffer, "SERVER_ERROR") == server->buffer) {
-        char *errPrefix = strdup("ASCII get error: ");
-        char *endOfMsg = (strstr(server->buffer, "\r\n"));
-        size_t toCopy = (endOfMsg - server->buffer);
-        server->errmsg = malloc(strlen(errPrefix) + toCopy);
-        memcpy(server->errmsg, errPrefix, strlen(errPrefix) + 1);
-        strncat(server->errmsg, server->buffer, toCopy);
+        textual_seterrmsg(server, strdup("ASCII get error: "));
         return -2; //indicating a server error
     }
 
@@ -878,13 +883,13 @@ static int textual_store(struct Server* server,
                     server->errmsg = strdup("Item NOT stored");
                     return -1;
                 } else if (strstr(server->buffer, "SERVER_ERROR temporary failure") == server->buffer) {
-                    server->errmsg = strdup("textual_store SERVER_ERROR");
+                    textual_seterrmsg(server, strdup("ASCII temporary failure: "));
                     return -2; //indicating temp fail
                 } else if (strstr(server->buffer, "SERVER_ERROR ") == server->buffer) {
-                    server->errmsg = strdup("textual_store SERVER_ERROR");
+                    textual_seterrmsg(server, strdup("ASCII set failure: "));
                     return -1;
                 } else {
-                    assert("Unexepcted reply from server.");
+                    assert("Protocol error, unexepcted reply from server.");
                 }
             }
         }
