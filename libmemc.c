@@ -39,6 +39,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
@@ -797,9 +798,6 @@ static int textual_get(struct Server* server, struct Item* item) {
             server_disconnect(server);
             return -1;
         }
-#ifndef __sun
-        typedef size_t ptrdiff_t;
-#endif
         ptrdiff_t headsize = ptr - server->buffer;
         size_t chunk = nread - headsize;
 
