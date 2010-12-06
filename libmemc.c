@@ -762,10 +762,10 @@ static int parse_value_line(char *header, uint32_t* flag, size_t* size, char** d
     return 0;
 }
 
-static char* textual_seterrmsg(struct Server* server, char* messagePrefix) {
+static void textual_seterrmsg(struct Server* server, char* messagePrefix) {
     char *endOfMsg = (strstr(server->buffer, "\r\n"));
     size_t toCopy = (endOfMsg - server->buffer);
-    server->errmsg = malloc(strlen(messagePrefix) + toCopy); // freed afer use
+    server->errmsg = malloc(strlen(messagePrefix) + toCopy + 1); // freed afer use
     memcpy(server->errmsg, messagePrefix, strlen(messagePrefix) + 1);
     strncat(server->errmsg, server->buffer, toCopy);
 }
