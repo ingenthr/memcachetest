@@ -357,8 +357,8 @@ struct Server* server_create(const char *name, in_port_t port) {
             ret->addrinfo = ai;
             sprintf(buffer, "%s:%d", name, port);
             ret->peername = strdup(buffer);
-            ret->buffer = malloc(65 * 1024);
-            ret->buffersize = 65 * 1024;
+            ret->buffer = malloc(1024 * 1024 + 256);
+            ret->buffersize = 1024 * 1024 + 256;
             server_connect(ret);
             if (ret->buffer == NULL) {
                 server_destroy(ret);
