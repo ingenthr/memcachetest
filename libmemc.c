@@ -613,6 +613,7 @@ static int binary_get(struct Server* server, struct Item* item)
 #endif
 }
 
+#ifdef HAVE_MEMCACHED_PROTOCOL_BINARY_H
 static const char * const response_texts[0xffff] = {
     [PROTOCOL_BINARY_RESPONSE_SUCCESS] = "success",
     [PROTOCOL_BINARY_RESPONSE_KEY_ENOENT] = "ENOENT",
@@ -631,6 +632,7 @@ static const char * const response_texts[0xffff] = {
     [PROTOCOL_BINARY_RESPONSE_EBUSY] = "EBUSY",
     [PROTOCOL_BINARY_RESPONSE_ETMPFAIL] = "ETMPFAIL"
 };
+#endif
 
 static int binary_store(struct Server* server,
                         enum StoreCommand cmd,
