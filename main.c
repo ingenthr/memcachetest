@@ -562,7 +562,7 @@ static int test(struct thread_context *ctx) {
     struct connection* connection;
     char key[256];
     size_t nkey;
-    for (int ii = 0; ii < ctx->total; ++ii) {
+    for (size_t ii = 0; ii < ctx->total; ++ii) {
         connection = get_connection();
         int idx = get_setval();
         nkey = snprintf(key, sizeof(key), "%s%d", prefix, idx);
