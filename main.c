@@ -618,7 +618,7 @@ static int test(struct thread_context *ctx) {
  *            the result
  * @return arg
  */
-void *test_thread_main(void* arg) {
+static void *test_thread_main(void* arg) {
     test((struct thread_context*)arg);
     return arg;
 }
