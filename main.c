@@ -341,30 +341,6 @@ static inline bool memcached_get_wrapper(struct connection* connection,
     return true;
 }
 
-static char *get_error_msg(struct connection* connection) {
-    struct memcachelib* lib = (struct memcachelib*)connection->handle;
-    char *ret = NULL;
-    switch (lib->type) {
-#ifdef HAVE_LIBMEMCACHED
-    case LIBMEMCACHED_BINARY: /* FALLTHROUGH */
-    case LIBMEMCACHED_TEXTUAL:
-        {
-            ret = strdup("Sorry, not implemented yet\n");
-        }
-        break;
-#endif
-    case LIBMEMC_BINARY:
-    case LIBMEMC_TEXTUAL:
-        ret = libmemc_get_error(lib->handle);
-        break;
-
-    default:
-        abort();
-    }
-
-    return ret;
-}
-
 static struct connection* connectionpool;
 static size_t connection_pool_size = 1;
 static int thread_bind_connection = 0;
@@ -497,11 +473,8 @@ static int populate_dataset(struct thread_context *ctx) {
         sres = memcached_set_wrapper(connection, key, nkey,
                                      datablock.data, dataset[ii]);
         if (sres != 0) {
-            char *msg = get_error_msg(connection);
-            fprintf(stderr, "Failed to set [%s]: %s!\n", key,
-                    msg == NULL ? "unknown reason" : msg);
+            fprintf(stderr, "Failed to set [%s]: during populate.\n", key);
             release_connection(connection);
-            free(msg);
             return -1;
         }
     }
