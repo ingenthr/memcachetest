@@ -594,7 +594,7 @@ static int test(struct thread_context *ctx) {
                 if (size != dataset[idx]) {
                     fprintf(stderr,
                             "Incorrect length returned for <%s>. "
-                            "Stored %ld got %ld\n",
+                            "Stored %zu got %zu\n",
                             key, dataset[idx], (long)size);
                 } else if (verify_data &&
                            memcmp(datablock.data, data, size) != 0) {
