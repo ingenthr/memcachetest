@@ -78,9 +78,9 @@ static int compare(const void *p1, const void *p2)
 /**
  * External interface
  */
-void record_tx(enum TxnType tx_type, hrtime_t time, struct thread_context *ctx) {
+void record_tx(enum TxnType tx_type, hrtime_t tx_time, struct thread_context *ctx) {
     assert(tx_type >= 0 && tx_type < (TX_CAS - TX_GET));
-    ctx->tx[tx_type].set[ctx->tx[tx_type].current++] = time;
+    ctx->tx[tx_type].set[ctx->tx[tx_type].current++] = tx_time;
 }
 
 struct ResultMetrics *calc_metrics(enum TxnType tx_type,
