@@ -46,6 +46,14 @@
 #include "libmemcached/memcached.h"
 #endif
 
+#ifdef HAVE_LIBEVENT
+#include <event.h>
+#endif
+
+#ifdef HAVE_LIBCOUCHBASE
+#include <libcouchbase/couchbase.h>
+#endif
+
 #include "libmemc.h"
 #include "metrics.h"
 #include "memcachetest.h"
@@ -129,6 +137,9 @@ enum Libraries {
     LIBMEMCACHED_TEXTUAL,
     LIBMEMCACHED_BINARY,
 #endif
+#ifdef HAVE_LIBCOUCHBASE
+    LIBCOUCHBASE,
+#endif
     INVALID_LIBRARY
 };
 
@@ -151,6 +162,47 @@ struct connection {
     pthread_mutex_t mutex;
     void *handle;
 };
+
+
+#ifdef HAVE_LIBCOUCHBASE
+struct libcouchbase_callback {
+    libcouchbase_error_t error;
+    size_t size;
+    void *data;
+};
+
+static void storage_callback(libcouchbase_t instance,
+                             const void *cookie,
+                             libcouchbase_storage_t operation,
+                             libcouchbase_error_t error,
+                             const void *key, size_t nkey,
+                             uint64_t cas)
+{
+    (void)instance; (void)operation; (void)key;
+    (void)nkey; (void)cas;
+    struct libcouchbase_callback *cb;
+    cb = (struct libcouchbase_callback *)cookie;
+    cb->error = error;
+}
+
+static void get_callback(libcouchbase_t instance,
+                         const void *cookie,
+                         libcouchbase_error_t error,
+                         const void *key, size_t nkey,
+                         const void *bytes, size_t nbytes,
+                         uint32_t flags, uint64_t cas)
+{
+    (void)key; (void)nkey; (void)flags; (void)cas;
+    struct libcouchbase_callback *cb;
+    cb = (struct libcouchbase_callback *)cookie;
+    cb->error = error;
+    if (error == LIBCOUCHBASE_SUCCESS) {
+        cb->data = malloc(nbytes);
+        memcpy(cb->data, bytes, nbytes);
+        cb->size = nbytes;
+    }
+}
+#endif
 
 /**
  * Create a handle to a memcached library
@@ -187,6 +239,41 @@ static void *create_memcached_handle(void) {
         }
         break;
 #endif
+
+#ifdef HAVE_LIBCOUCHBASE
+    case LIBCOUCHBASE:
+        {
+            struct event_base *evbase = event_base_new();
+            if (evbase == NULL) {
+                fprintf(stderr, "Failed to create event base\n");
+                exit(1);
+            }
+
+            char rest_server[1024];
+            sprintf(rest_server, "%s:%d", hosts->hostname, hosts->port);
+            libcouchbase_t instance = libcouchbase_create(rest_server,
+                                                          NULL, NULL, NULL,
+                                                          evbase);
+            if (instance == NULL) {
+                fprintf(stderr, "Failed to create libcouchbase instance\n");
+                event_base_free(evbase);
+                exit(1);
+            }
+
+            if (libcouchbase_connect(instance) != LIBCOUCHBASE_SUCCESS) {
+                fprintf(stderr, "Failed to connect libcouchbase instance to server\n");
+                event_base_free(evbase);
+                exit(1);
+            }
+
+            (void)libcouchbase_set_storage_callback(instance, storage_callback);
+            (void)libcouchbase_set_get_callback(instance, get_callback);
+
+            ret->handle = instance;
+        }
+        break;
+#endif
+
     case LIBMEMC_TEXTUAL:
         {
             struct Memcache* memcache = libmemc_create(Textual);
@@ -234,6 +321,12 @@ static void release_memcached_handle(void *handle) {
         break;
 #endif
 
+#ifdef HAVE_LIBCOUCHBASE
+    case LIBCOUCHBASE:
+        libcouchbase_destroy(lib->handle);
+        break;
+#endif
+
     case LIBMEMC_BINARY:
     case LIBMEMC_TEXTUAL:
         libmemc_destroy(lib->handle);
@@ -242,6 +335,7 @@ static void release_memcached_handle(void *handle) {
     default:
         abort();
     }
+    free(lib);
 }
 
 /**
@@ -269,6 +363,24 @@ static inline int memcached_set_wrapper(struct connection *connection,
         }
         break;
 #endif
+
+#ifdef HAVE_LIBCOUCHBASE
+    case LIBCOUCHBASE:
+        {
+            libcouchbase_t instance = lib->handle;
+            libcouchbase_error_t e;
+            struct libcouchbase_callback cb;
+            e = libcouchbase_store(instance, &cb, LIBCOUCHBASE_SET, key,
+                                   nkey, data, size, 0, 0, 0);
+            assert(e == LIBCOUCHBASE_SUCCESS);
+            libcouchbase_execute(instance);
+            if (cb.error != LIBCOUCHBASE_SUCCESS) {
+                return -1;
+            }
+        }
+        break;
+#endif
+
     case LIBMEMC_BINARY:
     case LIBMEMC_TEXTUAL:
         {
@@ -318,6 +430,31 @@ static inline bool memcached_get_wrapper(struct connection* connection,
         }
         break;
 #endif
+
+#ifdef HAVE_LIBCOUCHBASE
+    case LIBCOUCHBASE:
+        {
+            libcouchbase_t instance = lib->handle;
+            libcouchbase_error_t e;
+            struct libcouchbase_callback cb;
+            char* keys[1];
+            keys[0] = key;
+            size_t nkeys[1];
+            nkeys[0] = nkey;
+
+            e = libcouchbase_mget(instance, &cb, 1,
+                                  (const void * const *)keys, nkeys, NULL);
+            assert(e == LIBCOUCHBASE_SUCCESS);
+            libcouchbase_execute(instance);
+            if (cb.error != LIBCOUCHBASE_SUCCESS) {
+                return false;
+            }
+            *size = cb.size;
+            *data = cb.data;
+        }
+        break;
+#endif
+
     case LIBMEMC_BINARY:
     case LIBMEMC_TEXTUAL:
         {
