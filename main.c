@@ -119,8 +119,11 @@ long long no_iterations = 10000;
 /** If we should verify the data received. May be overridden with -V */
 int verify_data = 0;
 
-/** The probaility for a set operation */
+/** The probability for a set operation */
 int setprc = 33;
+
+/** Whether item bodies are random-looking, which affects compressibility */
+int random_value = 1;
 
 int verbose = 0;
 
@@ -561,7 +564,16 @@ static int initialize_dataset(void) {
         return -1;
     }
 
-    memset(datablock.data, 0xff, datablock.size);
+    if (random_value > 0) {
+        for (size_t i = 0, x = 332211; i < datablock.size; i++) {
+            char c = (char) x & 0x007f;
+            c = c > ' ' ? c : c + ' ' + 1;
+            ((char *) datablock.data)[i] = c;
+            x = (x + (i ^ x)) >> (x % 5);
+        }
+    } else {
+        memset(datablock.data, 0xff, datablock.size);
+    }
 
     if (dataset != NULL) {
         free(dataset);
@@ -886,7 +898,7 @@ int main(int argc, char **argv) {
     int size;
     gettimeofday(&starttime, NULL);
 
-    while ((cmd = getopt(argc, argv, "K:QW:M:pL:P:Fm:t:h:i:s:c:VlSvC:")) != EOF) {
+    while ((cmd = getopt(argc, argv, "K:QW:M:pL:P:Fm:t:h:i:s:c:VlSvC:r:")) != EOF) {
         switch (cmd) {
         case 'K':
             if (strlen(prefix) > 240) {
@@ -927,6 +939,8 @@ int main(int argc, char **argv) {
         case 'i': no_items = atoi(optarg);
             break;
         case 's': srand(atoi(optarg));
+            break;
+        case 'r': random_value = atoi(optarg);
             break;
         case 'c': no_iterations = atoll(optarg);
             break;
@@ -979,6 +993,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "\t-v Verbose output\n");
             fprintf(stderr, "\t-L Use the specified memcached client library\n");
             fprintf(stderr, "\t-W connection pool size\n");
+            fprintf(stderr, "\t-r Use random item values; default: 1 (true)\n");
             fprintf(stderr, "\t-s Use the specified seed to initialize the random generator\n");
             fprintf(stderr, "\t-S Skip the populate of the data\n");
             fprintf(stderr, "\t-P The probability for a set operation\n");
