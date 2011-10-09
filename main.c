@@ -256,7 +256,7 @@ static void *create_memcached_handle(void) {
             sprintf(rest_server, "%s:%d", hosts->hostname, hosts->port);
             libcouchbase_t instance = libcouchbase_create(rest_server,
                                                           NULL, NULL, NULL,
-                                                          evbase);
+                                                          NULL);
             if (instance == NULL) {
                 fprintf(stderr, "Failed to create libcouchbase instance\n");
                 event_base_free(evbase);
@@ -269,6 +269,7 @@ static void *create_memcached_handle(void) {
                 exit(1);
             }
 
+            libcouchbase_wait(instance);
             (void)libcouchbase_set_storage_callback(instance, storage_callback);
             (void)libcouchbase_set_get_callback(instance, get_callback);
 
@@ -376,7 +377,7 @@ static inline int memcached_set_wrapper(struct connection *connection,
             e = libcouchbase_store(instance, &cb, LIBCOUCHBASE_SET, key,
                                    nkey, data, size, 0, 0, 0);
             assert(e == LIBCOUCHBASE_SUCCESS);
-            libcouchbase_execute(instance);
+            libcouchbase_wait(instance);
             if (cb.error != LIBCOUCHBASE_SUCCESS) {
                 return -1;
             }
@@ -448,7 +449,7 @@ static inline bool memcached_get_wrapper(struct connection* connection,
             e = libcouchbase_mget(instance, &cb, 1,
                                   (const void * const *)keys, nkeys, NULL);
             assert(e == LIBCOUCHBASE_SUCCESS);
-            libcouchbase_execute(instance);
+            libcouchbase_wait(instance);
             if (cb.error != LIBCOUCHBASE_SUCCESS) {
                 return false;
             }

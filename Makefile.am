@@ -10,5 +10,5 @@ memcachetest_SOURCES = \
                        metrics.c metrics.h \
                        timer.c \
                        vbucket.c vbucket.h
-memcachetest_LDADD = $(LTLIBMEMCACHED) $(LTLIBVBUCKET) $(LTLIBCOUCHBASE)
+memcachetest_LDADD = $(LTLIBMEMCACHED) $(LTLIBVBUCKET) $(LTLIBCOUCHBASE) $(LTLIBEVENT)
 
