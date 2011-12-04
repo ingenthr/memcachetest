@@ -160,6 +160,11 @@ int current_memcached_library = LIBMEMC_TEXTUAL;
  * Print progress information during the test..
  */
 static int progress = 0;
+static long gets_count = 0;
+static long sets_count = 0;
+static long start_time = 0;
+static long runtime_limit = 0;
+
 
 struct connection {
     pthread_mutex_t mutex;
@@ -354,6 +359,7 @@ static void release_memcached_handle(void *handle) {
 static inline int memcached_set_wrapper(struct connection *connection,
                                         const char *key, int nkey,
                                         const void *data, int size) {
+
     struct memcachelib* lib = (struct memcachelib*)connection->handle;
     switch (lib->type) {
 #ifdef HAVE_LIBMEMCACHED
@@ -404,6 +410,7 @@ static inline int memcached_set_wrapper(struct connection *connection,
     default:
         abort();
     }
+    sets_count++;
     return 0;
 }
 
@@ -479,6 +486,7 @@ static inline bool memcached_get_wrapper(struct connection* connection,
         abort();
     }
 
+    gets_count++;
     return true;
 }
 
@@ -614,7 +622,9 @@ static int populate_dataset(struct thread_context *ctx) {
     size_t nkey;
     int sres = -1;
 
-    assert(end > ctx->offset);
+    if (end > ctx->offset)
+	    ctx->offset = 0;
+
     if (verbose) {
         fprintf(stderr, "Populating from %d to %d\n", ctx->offset, end);
     }
@@ -882,6 +892,15 @@ static int get_server_rusage(const struct host *entry, struct rusage *rusage) {
     return ret;
 }
 
+static void exit_handler(int signum)
+{
+    long end_time = (int) time(NULL);
+    long time_taken = end_time - start_time;
+    long ops_sec = ((float) gets_count+sets_count)/time_taken;
+    printf("\n\ngets: %ld, sets: %ld, time: %ld, ops/sec: %ld\n", gets_count, sets_count, time_taken, ops_sec);
+    exit(0);
+}
+
 /**
  * Program entry point
  * @param argc argument count
@@ -899,7 +918,7 @@ int main(int argc, char **argv) {
     int size;
     gettimeofday(&starttime, NULL);
 
-    while ((cmd = getopt(argc, argv, "K:QW:M:pL:P:Fm:t:h:i:s:c:VlSvC:r:")) != EOF) {
+    while ((cmd = getopt(argc, argv, "K:QW:M:pL:P:Fm:t:T:h:i:s:c:VlSvC:r:")) != EOF) {
         switch (cmd) {
         case 'K':
             if (strlen(prefix) > 240) {
@@ -911,6 +930,7 @@ int main(int argc, char **argv) {
         case 'p':
             progress = 1;
             break;
+
         case 'P':
             setprc = atoi(optarg);
             if (setprc > 100) {
@@ -937,6 +957,8 @@ int main(int argc, char **argv) {
             break;
         case 'h': add_host(optarg);
             break;
+        case 'T': runtime_limit = atol(optarg);
+	        break;
         case 'i': no_items = atoi(optarg);
             break;
         case 's': srand(atoi(optarg));
@@ -984,6 +1006,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
             fprintf(stderr, "\t   (use mulitple -h args for multiple servers)\n");
             fprintf(stderr, "\t-t The number of threads to use\n");
+            fprintf(stderr, "\t-T The number of seconds for which test is to be carried out (used with -l loop and repeat)\n");
             fprintf(stderr, "\t-i The number of items to operate with\n");
             fprintf(stderr, "\t-c The number of iteratons each thread should do\n");
             fprintf(stderr, "\t-l Loop and repeat the test, but print out information for each run\n");
@@ -1054,7 +1077,16 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to get server stats\n");
     }
 
-
+    if (loop)
+    {
+        signal(SIGALRM, exit_handler);
+        signal(SIGINT, exit_handler);
+        start_time = (int) time (NULL);
+        if (runtime_limit > 0)
+        {
+	        alarm(runtime_limit);
+        }
+    }
     size_t nget = 0;
     size_t nset = populate ? no_items : 0;
     do {
