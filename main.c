@@ -1006,7 +1006,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "\t-h The hostname:port where the memcached server is running\n");
             fprintf(stderr, "\t   (use mulitple -h args for multiple servers)\n");
             fprintf(stderr, "\t-t The number of threads to use\n");
-            fprintf(stderr, "\t-T The number of seconds for which test is to be carried out (used with -l loop and repeat)\n");
+            fprintf(stderr, "\t-T The number of seconds for which test is to be carried out\n");
+            fprintf(stderr, "\t   (used with -l loop and repeat)\n");
             fprintf(stderr, "\t-i The number of items to operate with\n");
             fprintf(stderr, "\t-c The number of iteratons each thread should do\n");
             fprintf(stderr, "\t-l Loop and repeat the test, but print out information for each run\n");
